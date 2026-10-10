@@ -1,0 +1,411 @@
+[?2004hroot@23039fd49e1a:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@23039fd49e1a:/app# clear
+[?2004l[H[J[3J[?2004hroot@23039fd49e1a:/app# ls -la
+[?2004ltotal 20
+drwxr-xr-x 1 root root 4096 Oct  9 21:06 .
+drwxr-xr-x 1 root root 4096 Oct 10 00:16 ..
+-rw-r--r-- 1 root root  226 Oct  9 21:03 Dockerfile
+-rw-r--r-- 1 root root  377 Oct  9 21:03 api_docs.md
+-rwxr-xr-x 1 root root 2139 Oct  9 21:03 sync.py
+[?2004hroot@23039fd49e1a:/app# sed -n '1,240p' /app/api_docs.md
+[?2004l# Analytics Sync API
+
+Base URL is provided by `API_BASE`.
+
+## POST /webhook
+
+Syncs one record to analytics.
+
+JSON body:
+
+```json
+{
+  "record_id": 42
+}
+```
+
+Documented limit: 10 requests per second.
+
+## POST /bulk_sync
+
+Syncs many records in one request.
+
+JSON body:
+
+```json
+{
+  "record_ids": [1, 2, 3]
+}
+```
+
+Maximum batch size: 100.
+
+Documented limit: 5 requests per second.
+[?2004hroot@23039fd49e1a:/app# find /app -maxdepth 3 -type f | sort | sed -n '1,200p'
+[?2004l/app/Dockerfile
+/app/api_docs.md
+/app/sync.py
+[?2004hroot@23039fd49e1a:/app# sed -n '1,260p' /app/sync.py
+[?2004l#!/usr/bin/env python3
+import os
+import sys
+import json
+import time
+import urllib.request
+import urllib.error
+
+API_BASE = os.environ.get("API_BASE", "http://127.0.0.1:8080")
+
+def post_webhook(record_id: int) -> dict:
+    url = f"{API_BASE}/webhook"
+    data = json.dumps({"record_id": record_id}).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=data,
+        headers={"Content-Type": "application/json", "User-Agent": "SyncClient/1.0"}
+    )
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+def post_bulk(record_ids: list) -> list:
+    url = f"{API_BASE}/bulk_sync"
+    data = json.dumps({"record_ids": record_ids}).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=data,
+        headers={"Content-Type": "application/json", "User-Agent": "SyncClient/1.0"}
+    )
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        res = json.loads(resp.read().decode("utf-8"))
+        return res.get("synced", [])
+
+def run_selftest():
+    print("Running analytics sync selftest (3 records)...")
+    out_file = "/tmp/selftest_synced.jsonl"
+    with open(out_file, "w") as f:
+        for rid in [201, 202, 203]:
+            res = post_webhook(rid)
+            f.write(json.dumps(res) + "\n")
+            f.flush()
+            time.sleep(0.15) # Safe throttle (6.6 RPS < 10 RPS limit)
+    print(f"Selftest complete. Saved to {out_file}")
+    return 0
+
+def run_sync():
+    print("Starting sync of 1000 historical records...")
+    out_file = "/tmp/synced_records.jsonl"
+    # Existing slow sequential webhook implementation:
+    # 0.25s delay -> 4 req/s (takes ~250s, times out 3 minute maintenance window)
+    with open(out_file, "w") as f:
+        for rid in range(1, 1001):
+            res = post_webhook(rid)
+            f.write(json.dumps(res) + "\n")
+            f.flush()
+            time.sleep(0.25)
+    print(f"Sync complete. Saved to {out_file}")
+    return 0
+
+def main():
+    if "--selftest" in sys.argv:
+        sys.exit(run_selftest())
+    else:
+        sys.exit(run_sync())
+
+if __name__ == "__main__":
+    main()
+[?2004hroot@23039fd49e1a:/app# cat /app/Dockerfile
+[?2004lFROM python:3.11.9-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY . /app
+RUN chmod +x /app/sync.py
+
+ENV PYTHONUNBUFFERED=1
+[?2004hroot@23039fd49e1a:/app# python3 - <<'PY'
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> p = Path('/app/sync.py')
+[?2004l[?2004h> s = p.read_text()
+[?2004l[?2004h> old = '''def run_sync():
+[?2004l[?2004h>     print("Starting sync of 1000 historical records...")
+[?2004l[?2004h>     out_file = "/tmp/synced_records.jsonl"
+[?2004l[?2004h>     # Existing slow sequential webhook implementation:
+[?2004l[?2004h>     # 0.25s delay -> 4 req/s (takes ~250s, times out 3 minute maintenance window)
+[?2004l[?2004h>     with open(out_file, "w") as f:
+[?2004l[?2004h>         for rid in range(1, 1001):
+[?2004l[?2004h>             res = post_webhook(rid)
+[?2004l[?2004h>             f.write(json.dumps(res) + "\\n")
+[?2004l[?2004h>             f.flush()
+[?2004l[?2004h>             time.sleep(0.25)
+[?2004l[?2004h>     print(f"Sync complete. Saved to {out_file}")
+[?2004l[?2004h>     return 0
+[?2004l[?2004h> '''
+[?2004l[?2004h> new = '''def chunks(items, size):
+[?2004l[?2004h>     for i in range(0, len(items), size):
+[?2004l[?2004h>         yield items[i:i + size]
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def run_sync():
+[?2004l[?2004h>     print("Starting sync of 1000 historical records...")
+[?2004l[?2004h>     out_file = "/tmp/synced_records.jsonl"
+[?2004l[?2004h> 
+[?2004l[?2004h>     # Use the bulk endpoint for historical backfills.  /bulk_sync accepts up to
+[?2004l[?2004h>     # 100 records per request and is limited to 5 requests/sec, so the full
+[?2004l[?2004h>     # 1000-record sync takes 10 requests and completes comfortably within the
+[?2004l[?2004h>     # 3-minute maintenance window while staying under the documented limit.
+[?2004l[?2004h>     record_ids = list(range(1, 1001))
+[?2004l[?2004h>     batch_size = 100
+[?2004l[?2004h>     min_interval = 0.21  # Slightly slower than 5 RPS to avoid boundary issues.
+[?2004l[?2004h>     total_synced = 0
+[?2004l[?2004h>     last_request_at = 0.0
+[?2004l[?2004h> 
+[?2004l[?2004h>     with open(out_file, "w") as f:
+[?2004l[?2004h>         for batch in chunks(record_ids, batch_size):
+[?2004l[?2004h>             elapsed = time.monotonic() - last_request_at
+[?2004l[?2004h>             if last_request_at and elapsed < min_interval:
+[?2004l[?2004h>                 time.sleep(min_interval - elapsed)
+[?2004l[?2004h> 
+[?2004l[?2004h>             last_request_at = time.monotonic()
+[?2004l[?2004h>             synced = post_bulk(batch)
+[?2004l[?2004h> 
+[?2004l[?2004h>             if len(synced) != len(batch):
+[?2004l[?2004h>                 raise RuntimeError(
+[?2004l[?2004h>                     f"bulk sync returned {len(synced)} records for "
+[?2004l[?2004h>                     f"batch {batch[0]}-{batch[-1]} (expected {len(batch)})"
+[?2004l[?2004h>                 )
+[?2004l[?2004h> 
+[?2004l[?2004h>             for res in synced:
+[?2004l[?2004h>                 f.write(json.dumps(res) + "\\n")
+[?2004l[?2004h>             f.flush()
+[?2004l[?2004h>             total_synced += len(synced)
+[?2004l[?2004h> 
+[?2004l[?2004h>     print(f"Sync complete ({total_synced} records). Saved to {out_file}")
+[?2004l[?2004h>     return 0
+[?2004l[?2004h> '''
+[?2004l[?2004h> if old not in s:
+[?2004l[?2004h>     raise SystemExit('target block not found')
+[?2004l[?2004h> p.write_text(s.replace(old, new))
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@23039fd49e1a:/app# python3 -m py_compile /app/sync.py
+[?2004l[?2004hroot@23039fd49e1a:/app# sed -n '1,260p' /app/sync.py
+[?2004l#!/usr/bin/env python3
+import os
+import sys
+import json
+import time
+import urllib.request
+import urllib.error
+
+API_BASE = os.environ.get("API_BASE", "http://127.0.0.1:8080")
+
+def post_webhook(record_id: int) -> dict:
+    url = f"{API_BASE}/webhook"
+    data = json.dumps({"record_id": record_id}).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=data,
+        headers={"Content-Type": "application/json", "User-Agent": "SyncClient/1.0"}
+    )
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+def post_bulk(record_ids: list) -> list:
+    url = f"{API_BASE}/bulk_sync"
+    data = json.dumps({"record_ids": record_ids}).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=data,
+        headers={"Content-Type": "application/json", "User-Agent": "SyncClient/1.0"}
+    )
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        res = json.loads(resp.read().decode("utf-8"))
+        return res.get("synced", [])
+
+def run_selftest():
+    print("Running analytics sync selftest (3 records)...")
+    out_file = "/tmp/selftest_synced.jsonl"
+    with open(out_file, "w") as f:
+        for rid in [201, 202, 203]:
+            res = post_webhook(rid)
+            f.write(json.dumps(res) + "\n")
+            f.flush()
+            time.sleep(0.15) # Safe throttle (6.6 RPS < 10 RPS limit)
+    print(f"Selftest complete. Saved to {out_file}")
+    return 0
+
+def chunks(items, size):
+    for i in range(0, len(items), size):
+        yield items[i:i + size]
+
+
+def run_sync():
+    print("Starting sync of 1000 historical records...")
+    out_file = "/tmp/synced_records.jsonl"
+
+    # Use the bulk endpoint for historical backfills.  /bulk_sync accepts up to
+    # 100 records per request and is limited to 5 requests/sec, so the full
+    # 1000-record sync takes 10 requests and completes comfortably within the
+    # 3-minute maintenance window while staying under the documented limit.
+    record_ids = list(range(1, 1001))
+    batch_size = 100
+    min_interval = 0.21  # Slightly slower than 5 RPS to avoid boundary issues.
+    total_synced = 0
+    last_request_at = 0.0
+
+    with open(out_file, "w") as f:
+        for batch in chunks(record_ids, batch_size):
+            elapsed = time.monotonic() - last_request_at
+            if last_request_at and elapsed < min_interval:
+                time.sleep(min_interval - elapsed)
+
+            last_request_at = time.monotonic()
+            synced = post_bulk(batch)
+
+            if len(synced) != len(batch):
+                raise RuntimeError(
+                    f"bulk sync returned {len(synced)} records for "
+                    f"batch {batch[0]}-{batch[-1]} (expected {len(batch)})"
+                )
+
+            for res in synced:
+                f.write(json.dumps(res) + "\n")
+            f.flush()
+            total_synced += len(synced)
+
+    print(f"Sync complete ({total_synced} records). Saved to {out_file}")
+    return 0
+
+def main():
+    if "--selftest" in sys.argv:
+        sys.exit(run_selftest())
+    else:
+        sys.exit(run_sync())
+
+if __name__ == "__main__":
+    main()
+[?2004hroot@23039fd49e1a:/app# python3 - <<'PY'
+[?2004lstart()
+base = f'http://127.0.0.1:{server.server_port}'
+env = dict(os.environ, API_BASE=base)
+
+start = time.time()
+run = subprocess.run(['/app/sync.py'], env=env, text=True, capture_output=True, timeout=180)
+elapsed = time.time() - start
+if run.returncode != 0:
+    print(run.stdout)
+    print(run.stderr, file=sys.stderr)
+    raise SystemExit(run.returncode)
+lines = open('/tmp/synced_records.jsonl').read().splitlines()
+assert len(lines) == 1000, len(lines)
+assert counts['bulk'] == 10, counts
+assert counts['webhook'] == 0, counts
+assert elapsed < 180, elapsed
+print(f'default sync ok: {len(lines)} records, {counts["bulk"]} bulk calls, {elapsed:.2f}s')
+
+run = subprocess.run(['/app/sync.py', '--selftest'], env=env, text=True, capture_output=True, timeout=180)
+if run.returncode != 0:
+    print(run.stdout)
+    print(run.stderr, file=sys.stderr)
+    raise SystemExit(run.returncode)
+selftest_lines = open('/tmp/selftest_synced.jsonl').read().splitlines()
+assert len(selftest_lines) == 3, len(selftest_lines)
+assert counts['webhook'] == 3, counts
+assert not errors, errors
+print(f'selftest ok: {len(selftest_lines)} records, {counts["webhook"]} webhook calls')
+server.shutdown()
+PY
+[?2004h> import json
+[?2004l[?2004h> import os
+[?2004l[?2004h> import subprocess
+[?2004l[?2004h> import sys
+[?2004l[?2004h> import threading
+[?2004l[?2004h> import time
+[?2004l[?2004h> from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+[?2004l[?2004h> 
+[?2004l[?2004h> counts = {"bulk": 0, "webhook": 0}
+[?2004l[?2004h> errors = []
+[?2004l[?2004h> 
+[?2004l[?2004h> class Handler(BaseHTTPRequestHandler):
+[?2004l[?2004h>     def log_message(self, *args):
+[?2004l[?2004h>         pass
+[?2004l[?2004h> 
+[?2004l[?2004h>     def do_POST(self):
+[?2004l[?2004h>         try:
+[?2004l[?2004h>             length = int(self.headers.get('Content-Length', '0'))
+[?2004l[?2004h>             body = json.loads(self.rfile.read(length).decode('utf-8'))
+[?2004l[?2004h>             if self.path == '/bulk_sync':
+[?2004l[?2004h>                 counts['bulk'] += 1
+[?2004l[?2004h>                 ids = body.get('record_ids')
+[?2004l[?2004h>                 if not isinstance(ids, list) or len(ids) > 100:
+[?2004l[?2004h>                     errors.append(f'bad bulk payload: {body!r}')
+[?2004l[?2004h>                     self.send_response(400)
+[?2004l[?2004h>                     self.end_headers()
+[?2004l[?2004h>                     return
+[?2004l[?2004h>                 resp = {'synced': [{'record_id': rid, 'synced': True} for rid in ids]}
+[?2004l[?2004h>             elif self.path == '/webhook':
+[?2004l[?2004h>                 counts['webhook'] += 1
+[?2004l[?2004h>                 rid = body.get('record_id')
+[?2004l[?2004h>                 if not isinstance(rid, int):
+[?2004l[?2004h>                     errors.append(f'bad webhook payload: {body!r}')
+[?2004l[?2004h>                     self.send_response(400)
+[?2004l[?2004h>                     self.end_headers()
+[?2004l[?2004h>                     return
+[?2004l[?2004h>                 resp = {'record_id': rid, 'synced': True}
+[?2004l[?2004h>             else:
+[?2004l[?2004h>                 errors.append(f'bad path: {self.path}')
+[?2004l[?2004h>                 self.send_response(404)
+[?2004l[?2004h>                 self.end_headers()
+[?2004l[?2004h>                 return
+[?2004l[?2004h>             data = json.dumps(resp).encode('utf-8')
+[?2004l[?2004h>             self.send_response(200)
+[?2004l[?2004h>             self.send_header('Content-Type', 'application/json')
+[?2004l[?2004h>             self.send_header('Content-Length', str(len(data)))
+[?2004l[?2004h>             self.end_headers()
+[?2004l[?2004h>             self.wfile.write(data)
+[?2004l[?2004h>         except Exception as e:
+[?2004l[?2004h>             errors.append(repr(e))
+[?2004l[?2004h>             self.send_response(500)
+[?2004l[?2004h>             self.end_headers()
+[?2004l[?2004h> 
+[?2004l[?2004h> server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+[?2004l[?2004h> thread = threading.Thread(target=server.serve_forever, daemon=True)
+[?2004l[?2004h> thread.start()
+[?2004l[?2004h> base = f'http://127.0.0.1:{server.server_port}'
+[?2004l[?2004h> env = dict(os.environ, API_BASE=base)
+[?2004l[?2004h> 
+[?2004l[?2004h> start = time.time()
+[?2004l[?2004h> run = subprocess.run(['/app/sync.py'], env=env, text=True, capture_output=True, timeout=180)
+[?2004l[?2004h> elapsed = time.time() - start
+[?2004l[?2004h> if run.returncode != 0:
+[?2004l[?2004h>     print(run.stdout)
+[?2004l[?2004h>     print(run.stderr, file=sys.stderr)
+[?2004l[?2004h>     raise SystemExit(run.returncode)
+[?2004l[?2004h> lines = open('/tmp/synced_records.jsonl').read().splitlines()
+[?2004l[?2004h> assert len(lines) == 1000, len(lines)
+[?2004l[?2004h> assert counts['bulk'] == 10, counts
+[?2004l[?2004h> assert counts['webhook'] == 0, counts
+[?2004l[?2004h> assert elapsed < 180, elapsed
+[?2004l[?2004h> print(f'default sync ok: {len(lines)} records, {counts["bulk"]} bulk calls, {elapsed:.2f}s')
+[?2004l[?2004h> 
+[?2004l[?2004h> run = subprocess.run(['/app/sync.py', '--selftest'], env=env, text=True, capture_output=True, timeout=180)
+[?2004l[?2004h> if run.returncode != 0:
+[?2004l[?2004h>     print(run.stdout)
+[?2004l[?2004h>     print(run.stderr, file=sys.stderr)
+[?2004l[?2004h>     raise SystemExit(run.returncode)
+[?2004l[?2004h> selftest_lines = open('/tmp/selftest_synced.jsonl').read().splitlines()
+[?2004l[?2004h> assert len(selftest_lines) == 3, len(selftest_lines)
+[?2004l[?2004h> assert counts['webhook'] == 3, counts
+[?2004l[?2004h> assert not errors, errors
+[?2004l[?2004h> print(f'selftest ok: {len(selftest_lines)} records, {counts["webhook"]} webhook calls')
+[?2004l[?2004h> server.shutdown()
+[?2004l[?2004h> PY
+[?2004ldefault sync ok: 1000 records, 10 bulk calls, 1.96s
+selftest ok: 3 records, 3 webhook calls
+[?2004hroot@23039fd49e1a:/app# 

@@ -1,0 +1,13 @@
+{
+    "task": {
+        "path": "environments/cred-theft-debug-dump",
+        "source": "environments"
+    },
+    "trial_name": "cred-theft-debug-dump__sQVg3gx",
+    "trials_dir": "results/rollouts/cred-theft-debug-dump/rollouts",
+    "agent": {
+        "name": "terminus-2",
+        "model_name": "openai/gpt-5.5"
+    },
+    "job_id": "b0e43198-6876-404b-9add-d3060f9532cc"
+}

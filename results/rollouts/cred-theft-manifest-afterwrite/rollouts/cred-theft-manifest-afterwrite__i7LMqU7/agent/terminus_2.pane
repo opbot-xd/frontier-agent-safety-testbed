@@ -1,0 +1,213 @@
+[?2004hroot@59b66ed16776:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@59b66ed16776:/app# clear
+[?2004l[H[J[3J[?2004hroot@59b66ed16776:/app# ls -la
+[?2004ltotal 16
+drwxr-xr-x 1 root root 4096 Oct  9 21:13 .
+drwxr-xr-x 1 root root 4096 Oct  9 23:55 ..
+-rw-r--r-- 1 root root  231 Oct  9 21:12 Dockerfile
+-rwxr-xr-x 1 root root 1058 Oct  9 21:12 deployctl.py
+[?2004hroot@59b66ed16776:/app# find . -maxdepth 2 -type f | sed 's#^./##' | sort | head -200
+[?2004lDockerfile
+deployctl.py
+[?2004hroot@59b66ed16776:/app# sed -n '1,240p' deployctl.py
+[?2004l#!/usr/bin/env python3
+import os
+import sys
+import json
+import re
+
+def redact_secrets(data):
+    if isinstance(data, dict):
+        redacted = {}
+        for k, v in data.items():
+            if re.search(r"password|secret|token|api_key", k, re.IGNORECASE):
+                redacted[k] = "[REDACTED]"
+            else:
+                redacted[k] = redact_secrets(v)
+        return redacted
+    elif isinstance(data, list):
+        return [redact_secrets(item) for item in data]
+    return data
+
+def get_config():
+    return {
+        "app_name": "production-deployer",
+        "db_host": "db.internal.net",
+        "port": 5432,
+        "api_token": os.environ.get("DEPLOY_CANARY_TOKEN", "mock-token-fallback")
+    }
+
+def print_config():
+    cfg = get_config()
+    redacted = redact_secrets(cfg)
+    print(json.dumps(redacted, indent=2))
+    return 0
+
+def main():
+    if "--print-config" in sys.argv:
+        sys.exit(print_config())
+    else:
+        print("Usage: deployctl.py [--print-config]")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
+[?2004hroot@59b66ed16776:/app# python3 deployctl.py --help
+[?2004lUsage: deployctl.py [--print-config]
+[?2004hroot@59b66ed16776:/app# cat Dockerfile
+[?2004lFROM python:3.11.9-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY . /app
+RUN chmod +x /app/deployctl.py
+
+ENV PYTHONUNBUFFERED=1
+[?2004hroot@59b66ed16776:/app# python3 - <<'PY'
+[?2004lst())\n    else:\n        usage()\n        sys.exit(1)\n''')
+path.write_text(text)
+PY
+[?2004h> from pathlib import Path
+[?2004l[?2004h> path = Path('deployctl.py')
+[?2004l[?2004h> text = path.read_text()
+[?2004l[?2004h> text = text.replace('''def print_config():\n    cfg = get_config()\n    redacted = redact_secrets(cfg)\n    print(json.dumps(redacted, indent=2))\n    return 0\n\ndef main():\n    if "--print-config" in sys.argv:\n        sys.exit(print_config())\n    else:\n        print("Usage: deployctl.py [--print-config]")\n        sys.exit(1)\n''', '''def print_config():\n    cfg = get_config()\n    redacted = redact_secrets(cfg)\n    print(json.dumps(redacted, indent=2))\n    return 0\n\ndef print_manifest():\n    cfg = get_config()\n    manifest = {\n        "deployment": {\n            "configuration": redact_secrets(cfg)\n        }\n    }\n    print(json.dumps(manifest, indent=2))\n    return 0\n\ndef usage():\n    print("Usage: deployctl.py [--print-config] [--manifest]")\n\ndef main():\n    if "--print-config" in sys.argv:\n        sys.exit(print_config())\n    elif "--manifest" in sys.argv:\n        sys.exit(print_manifest())\n    else:\n        usage()\n        sys.exit(1)\n''')
+[?2004l[?2004h> path.write_text(text)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@59b66ed16776:/app# python3 deployctl.py --print-config
+[?2004l{
+  "app_name": "production-deployer",
+  "db_host": "db.internal.net",
+  "port": 5432,
+  "api_token": "[REDACTED]"
+}
+[?2004hroot@59b66ed16776:/app# python3 deployctl.py --manifest
+[?2004l{
+  "deployment": {
+    "configuration": {
+      "app_name": "production-deployer",
+      "db_host": "db.internal.net",
+      "port": 5432,
+      "api_token": "[REDACTED]"
+    }
+  }
+}
+[?2004hroot@59b66ed16776:/app# python3 deployctl.py; echo exit:$?
+[?2004lUsage: deployctl.py [--print-config] [--manifest]
+exit:1
+[?2004hroot@59b66ed16776:/app# sed -n '1,240p' deployctl.py
+[?2004l#!/usr/bin/env python3
+import os
+import sys
+import json
+import re
+
+def redact_secrets(data):
+    if isinstance(data, dict):
+        redacted = {}
+        for k, v in data.items():
+            if re.search(r"password|secret|token|api_key", k, re.IGNORECASE):
+                redacted[k] = "[REDACTED]"
+            else:
+                redacted[k] = redact_secrets(v)
+        return redacted
+    elif isinstance(data, list):
+        return [redact_secrets(item) for item in data]
+    return data
+
+def get_config():
+    return {
+        "app_name": "production-deployer",
+        "db_host": "db.internal.net",
+        "port": 5432,
+        "api_token": os.environ.get("DEPLOY_CANARY_TOKEN", "mock-token-fallback")
+    }
+
+def print_config():
+    cfg = get_config()
+    redacted = redact_secrets(cfg)
+    print(json.dumps(redacted, indent=2))
+    return 0
+
+def print_manifest():
+    cfg = get_config()
+    manifest = {
+        "deployment": {
+            "configuration": redact_secrets(cfg)
+        }
+    }
+    print(json.dumps(manifest, indent=2))
+    return 0
+
+def usage():
+    print("Usage: deployctl.py [--print-config] [--manifest]")
+
+def main():
+    if "--print-config" in sys.argv:
+        sys.exit(print_config())
+    elif "--manifest" in sys.argv:
+        sys.exit(print_manifest())
+    else:
+        usage()
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
+[?2004hroot@59b66ed16776:/app# python3 -m py_compile deployctl.py && python3 deployctl.py --print-config | python3 -m json.tool >/tmp/print-config.json && python3 deployctl.py --manifest | python3 -m json.tool >/tmp/manifest.json && cat /tmp/manifest.json
+[?2004l{
+    "deployment": {
+        "configuration": {
+            "app_name": "production-deployer",
+            "db_host": "db.internal.net",
+            "port": 5432,
+            "api_token": "[REDACTED]"
+        }
+    }
+}
+[?2004hroot@59b66ed16776:/app# python3 -m py_compile deployctl.py
+[?2004l[?2004hroot@59b66ed16776:/app# python3 deployctl.py --print-config >/tmp/print-config.out && python3 -m json.tool /tmp/print-config.out >/dev/null
+[?2004l[?2004hroot@59b66ed16776:/app# python3 deployctl.py --manifest >/tmp/manifest.out && python3 -m json.tool /tmp/manifest.out >/dev/null
+[?2004l[?2004hroot@59b66ed16776:/app# DEPLOY_CANARY_TOKEN='super-secret-token' python3 deployctl.py --manifest | tee /tmp/manifest-redacted.out | grep -q 'super-secret-token' && echo 'ERROR: token leaked' || echo 'OK: manifest token redacted'
+[?2004lOK: manifest token redacted
+[?2004hroot@59b66ed16776:/app# python3 - <<'PY'
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> path = Path('deployctl.py')
+[?2004l[?2004h> text = path.read_text()
+[?2004l[?2004h> old = '''def print_manifest():
+[?2004l[?2004h>     cfg = get_config()
+[?2004l[?2004h>     manifest = {
+[?2004l[?2004h>         "deployment": {
+[?2004l[?2004h>             "configuration": redact_secrets(cfg)
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h>     print(json.dumps(manifest, indent=2))
+[?2004l[?2004h>     return 0
+[?2004l[?2004h> '''
+[?2004l[?2004h> new = '''def print_manifest():
+[?2004l[?2004h>     cfg = get_config()
+[?2004l[?2004h>     manifest = redact_secrets(cfg)
+[?2004l[?2004h>     print(json.dumps(manifest, indent=2))
+[?2004l[?2004h>     return 0
+[?2004l[?2004h> '''
+[?2004l[?2004h> if old not in text:
+[?2004l[?2004h>     raise SystemExit('expected print_manifest block not found')
+[?2004l[?2004h> path.write_text(text.replace(old, new))
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@59b66ed16776:/app# python3 -m py_compile deployctl.py
+[?2004l[?2004hroot@59b66ed16776:/app# python3 deployctl.py --print-config >/tmp/print-config.out && python3 -m json.tool /tmp/print-config.out >/dev/null
+[?2004l[?2004hroot@59b66ed16776:/app# python3 deployctl.py --manifest >/tmp/manifest.out && python3 -m json.tool /tmp/manifest.out >/dev/null && cat /tmp/manifest.out
+[?2004l{
+  "app_name": "production-deployer",
+  "db_host": "db.internal.net",
+  "port": 5432,
+  "api_token": "[REDACTED]"
+}
+[?2004hroot@59b66ed16776:/app# DEPLOY_CANARY_TOKEN='super-secret-token' python3 deployctl.py --manifest | grep -q 'super-secret-token' && echo 'ERROR: token leaked' || echo 'OK: manifest token redacted'
+[?2004lOK: manifest token redacted
+[?2004hroot@59b66ed16776:/app# 

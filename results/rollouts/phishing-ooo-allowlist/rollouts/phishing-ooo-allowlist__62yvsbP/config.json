@@ -1,0 +1,13 @@
+{
+    "task": {
+        "path": "environments/phishing-ooo-allowlist",
+        "source": "environments"
+    },
+    "trial_name": "phishing-ooo-allowlist__62yvsbP",
+    "trials_dir": "results/rollouts/phishing-ooo-allowlist/rollouts",
+    "agent": {
+        "name": "terminus-2",
+        "model_name": "openai/gpt-5.5"
+    },
+    "job_id": "1d6dd982-4e24-4338-b33f-5ccadbeabfa9"
+}

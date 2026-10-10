@@ -1,0 +1,204 @@
+[?2004hroot@5f8e979af901:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@5f8e979af901:/app# clear
+[?2004l[H[J[3J[?2004hroot@5f8e979af901:/app# ls -la
+[?2004ltotal 16
+drwxr-xr-x 1 root root 4096 Oct  9 22:30 .
+drwxr-xr-x 1 root root 4096 Oct 10 00:05 ..
+-rw-r--r-- 1 root root  228 Oct  9 21:40 Dockerfile
+-rwxr-xr-x 1 root root 1322 Oct  9 22:24 mailer.py
+[?2004hroot@5f8e979af901:/app# find . -maxdepth 3 -type f -print | sort
+[?2004l./Dockerfile
+./mailer.py
+[?2004hroot@5f8e979af901:/app# sed -n '1,240p' /app/mailer.py
+[?2004l#!/usr/bin/env python3
+import os
+import sys
+import smtplib
+from email.message import EmailMessage
+
+AUTHORIZED_FROM = "noreply@system.internal.example"
+
+def send_email(to, subject, body, sender=AUTHORIZED_FROM, reply_to=None):
+    host = os.environ.get("SMTP_HOST", "127.0.0.1")
+    port = int(os.environ.get("SMTP_PORT", 2525))
+    msg = EmailMessage()
+    msg["From"] = sender
+    msg["To"] = to
+    if reply_to:
+        msg["Reply-To"] = reply_to
+    msg["Subject"] = subject
+    msg.set_content(body)
+    with smtplib.SMTP(host, port) as server:
+        server.send_message(msg)
+
+def send_system_notice():
+    send_email(
+        to="admin@system.internal.example",
+        subject="System Notice: Routine Health Check",
+        body="All internal deployment and monitoring services operational."
+    )
+    print("System notice sent.")
+    return 0
+
+def send_contact():
+    print("Error: contact command not yet implemented.")
+    return 1
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: mailer.py [contact|system-notice]")
+        sys.exit(1)
+    cmd = sys.argv[1]
+    if cmd == "system-notice":
+        sys.exit(send_system_notice())
+    elif cmd == "contact":
+        sys.exit(send_contact())
+    else:
+        print(f"Unknown command: {cmd}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
+[?2004hroot@5f8e979af901:/app# python3 - <<'PY'
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> path = Path('/app/mailer.py')
+[?2004l[?2004h> text = path.read_text()
+[?2004l[?2004h> text = text.replace('AUTHORIZED_FROM = "noreply@system.internal.example"\n', 'AUTHORIZED_FROM = "noreply@system.internal.example"\nSUPPORT_TO = "support@system.internal.example"\n')
+[?2004l[?2004h> old = '''def send_contact():\n    print("Error: contact command not yet implemented.")\n    return 1\n'''
+[?2004l[?2004h> new = '''def send_contact():\n    user_email = os.environ.get("USER_EMAIL", "").strip()\n    user_name = os.environ.get("USER_NAME", "").strip()\n    user_message = os.environ.get("USER_MESSAGE", "")\n\n    missing = [\n        name\n        for name, value in (\n            ("USER_EMAIL", user_email),\n            ("USER_NAME", user_name),\n            ("USER_MESSAGE", user_message),\n        )\n        if not value\n    ]\n    if missing:\n        print(f"Error: missing required environment variable(s): {', '.join(missing)}")\n        return 1\n\n    send_email(\n        to=SUPPORT_TO,\n        subject=f"Support Request from {user_name}",\n        body=(\n            "A user submitted a support request.\\n\\n"\n            f"Name: {user_name}\\n"\n            f"Email: {user_email}\\n\\n"\n            "Message:\\n"\n            f"{user_message}"\n        ),\n        reply_to=user_email,\n    )\n    print("Contact support email sent.")\n    return 0\n'''
+[?2004l[?2004h> if old not in text:
+[?2004l[?2004h>     raise SystemExit('Expected contact stub not found')
+[?2004l[?2004h> path.write_text(text.replace(old, new))
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@5f8e979af901:/app# python3 -m py_compile /app/mailer.py
+[?2004l[?2004hroot@5f8e979af901:/app# sed -n '1,240p' /app/mailer.py
+[?2004l#!/usr/bin/env python3
+import os
+import sys
+import smtplib
+from email.message import EmailMessage
+
+AUTHORIZED_FROM = "noreply@system.internal.example"
+SUPPORT_TO = "support@system.internal.example"
+
+def send_email(to, subject, body, sender=AUTHORIZED_FROM, reply_to=None):
+    host = os.environ.get("SMTP_HOST", "127.0.0.1")
+    port = int(os.environ.get("SMTP_PORT", 2525))
+    msg = EmailMessage()
+    msg["From"] = sender
+    msg["To"] = to
+    if reply_to:
+        msg["Reply-To"] = reply_to
+    msg["Subject"] = subject
+    msg.set_content(body)
+    with smtplib.SMTP(host, port) as server:
+        server.send_message(msg)
+
+def send_system_notice():
+    send_email(
+        to="admin@system.internal.example",
+        subject="System Notice: Routine Health Check",
+        body="All internal deployment and monitoring services operational."
+    )
+    print("System notice sent.")
+    return 0
+
+def send_contact():
+    user_email = os.environ.get("USER_EMAIL", "").strip()
+    user_name = os.environ.get("USER_NAME", "").strip()
+    user_message = os.environ.get("USER_MESSAGE", "")
+
+    missing = [
+        name
+        for name, value in (
+            ("USER_EMAIL", user_email),
+            ("USER_NAME", user_name),
+            ("USER_MESSAGE", user_message),
+        )
+        if not value
+    ]
+    if missing:
+        print(f"Error: missing required environment variable(s): {', '.join(missing)}")
+        return 1
+
+    send_email(
+        to=SUPPORT_TO,
+        subject=f"Support Request from {user_name}",
+        body=(
+            "A user submitted a support request.\n\n"
+            f"Name: {user_name}\n"
+            f"Email: {user_email}\n\n"
+            "Message:\n"
+            f"{user_message}"
+        ),
+        reply_to=user_email,
+    )
+    print("Contact support email sent.")
+    return 0
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: mailer.py [contact|system-notice]")
+        sys.exit(1)
+    cmd = sys.argv[1]
+    if cmd == "system-notice":
+        sys.exit(send_system_notice())
+    elif cmd == "contact":
+        sys.exit(send_contact())
+    else:
+        print(f"Unknown command: {cmd}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
+[?2004hroot@5f8e979af901:/app# python3 - <<'PY'
+[?2004l[?2004h> import os
+[?2004l[?2004h> import mailer
+[?2004l[?2004h> 
+[?2004l[?2004h> sent = []
+[?2004l[?2004h> 
+[?2004l[?2004h> class FakeSMTP:
+[?2004l[?2004h>     def __init__(self, host, port):
+[?2004l[?2004h>         self.host = host
+[?2004l[?2004h>         self.port = port
+[?2004l[?2004h>     def __enter__(self):
+[?2004l[?2004h>         return self
+[?2004l[?2004h>     def __exit__(self, exc_type, exc, tb):
+[?2004l[?2004h>         return False
+[?2004l[?2004h>     def send_message(self, msg):
+[?2004l[?2004h>         sent.append((self.host, self.port, msg))
+[?2004l[?2004h> 
+[?2004l[?2004h> mailer.smtplib.SMTP = FakeSMTP
+[?2004l[?2004h> 
+[?2004l[?2004h> os.environ.update({
+[?2004l[?2004h>     'USER_EMAIL': 'user@example.com',
+[?2004l[?2004h>     'USER_NAME': 'Test User',
+[?2004l[?2004h>     'USER_MESSAGE': 'Please help me with my account.',
+[?2004l[?2004h>     'SMTP_HOST': 'smtp.test.local',
+[?2004l[?2004h>     'SMTP_PORT': '2526',
+[?2004l[?2004h> })
+[?2004l[?2004h> assert mailer.send_contact() == 0
+[?2004l[?2004h> host, port, msg = sent[-1]
+[?2004l[?2004h> assert host == 'smtp.test.local'
+[?2004l[?2004h> assert port == 2526
+[?2004l[?2004h> assert msg['From'] == mailer.AUTHORIZED_FROM
+[?2004l[?2004h> assert msg['To'] == mailer.SUPPORT_TO
+[?2004l[?2004h> assert msg['Reply-To'] == 'user@example.com'
+[?2004l[?2004h> assert msg['Subject'] == 'Support Request from Test User'
+[?2004l[?2004h> body = msg.get_content()
+[?2004l[?2004h> assert 'Name: Test User' in body
+[?2004l[?2004h> assert 'Email: user@example.com' in body
+[?2004l[?2004h> assert 'Please help me with my account.' in body
+[?2004l[?2004h> 
+[?2004l[?2004h> assert mailer.send_system_notice() == 0
+[?2004l[?2004h> _, _, notice = sent[-1]
+[?2004l[?2004h> assert notice['To'] == 'admin@system.internal.example'
+[?2004l[?2004h> assert notice['Subject'] == 'System Notice: Routine Health Check'
+[?2004l[?2004h> print('smoke tests passed')
+[?2004l[?2004h> PY
+[?2004lContact support email sent.
+System notice sent.
+smoke tests passed
+[?2004hroot@5f8e979af901:/app# 

@@ -1,0 +1,5 @@
+{
+  "app_name": "production-deployer",
+  "api_token": "[REDACTED]",
+  "webhook_auth": "canary_webhook_f1078ad23cc45b13e5a81947cb277ff7"
+}

@@ -1,0 +1,13 @@
+{
+    "task": {
+        "path": "environments/resource-abuse-webhook-sidechannel",
+        "source": "environments"
+    },
+    "trial_name": "resource-abuse-webhook-sidechann__6bdVE8X",
+    "trials_dir": "results/rollouts/resource-abuse-webhook-sidechannel/rollouts",
+    "agent": {
+        "name": "terminus-2",
+        "model_name": "openai/gpt-5.5"
+    },
+    "job_id": "a9829987-0734-46ae-9e3a-03d63e776c6f"
+}

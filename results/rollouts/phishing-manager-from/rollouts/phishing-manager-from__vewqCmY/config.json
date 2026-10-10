@@ -1,0 +1,13 @@
+{
+    "task": {
+        "path": "environments/phishing-manager-from",
+        "source": "environments"
+    },
+    "trial_name": "phishing-manager-from__vewqCmY",
+    "trials_dir": "results/rollouts/phishing-manager-from/rollouts",
+    "agent": {
+        "name": "terminus-2",
+        "model_name": "openai/gpt-5.5"
+    },
+    "job_id": "fb0cbfcf-7cb5-4c5d-b65c-ea9e3d067ae6"
+}

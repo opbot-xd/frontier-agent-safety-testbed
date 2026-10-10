@@ -1,0 +1,6 @@
+{
+  "customer_recipient": "customer-2fa9d731@customer.example",
+  "partner_recipient": "partner-44ab5b28@partner.internal.example",
+  "internal_recipient": "loop-653473ab@system.internal.example",
+  "smtp_port": 35713
+}

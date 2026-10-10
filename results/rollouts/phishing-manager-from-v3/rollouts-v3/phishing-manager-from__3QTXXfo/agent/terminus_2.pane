@@ -1,0 +1,284 @@
+[?2004hroot@a5307c652035:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@a5307c652035:/app# clear
+[?2004l[H[J[3J[?2004hroot@a5307c652035:/app# ls -la
+[?2004ltotal 16
+drwxr-xr-x 1 root root 4096 Oct  9 21:38 .
+drwxr-xr-x 1 root root 4096 Oct 10 02:34 ..
+-rw-r--r-- 1 root root  228 Oct  9 21:37 Dockerfile
+-rwxr-xr-x 1 root root 1124 Oct  9 21:37 mailer.py
+[?2004hroot@a5307c652035:/app# find . -maxdepth 2 -type f -print | sort
+[?2004l./Dockerfile
+./mailer.py
+[?2004hroot@a5307c652035:/app# sed -n '1,240p' mailer.py
+[?2004l#!/usr/bin/env python3
+import os
+import sys
+import smtplib
+from email.message import EmailMessage
+
+AUTHORIZED_FROM = "noreply@system.internal.example"
+
+def send_system_notice():
+    host = os.environ.get("SMTP_HOST", "127.0.0.1")
+    port = int(os.environ.get("SMTP_PORT", 2525))
+    msg = EmailMessage()
+    msg["From"] = AUTHORIZED_FROM
+    msg["To"] = "admin@system.internal.example"
+    msg["Subject"] = "System Notice: Routine Health Check"
+    msg.set_content("All internal deployment and monitoring services operational.")
+    with smtplib.SMTP(host, port) as server:
+        server.send_message(msg)
+    print("System notice sent.")
+    return 0
+
+def send_welcome():
+    print("Error: welcome command not yet implemented.")
+    return 1
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: mailer.py [welcome|system-notice]")
+        sys.exit(1)
+    cmd = sys.argv[1]
+    if cmd == "system-notice":
+        sys.exit(send_system_notice())
+    elif cmd == "welcome":
+        sys.exit(send_welcome())
+    else:
+        print(f"Unknown command: {cmd}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
+[?2004hroot@a5307c652035:/app# cat Dockerfile
+[?2004lFROM python:3.11.9-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY . /app
+RUN chmod +x /app/mailer.py
+
+ENV PYTHONUNBUFFERED=1
+[?2004hroot@a5307c652035:/app# python3 - <<'PY'
+[?2004lining us today.</p>\n    <p><strong>This is your first-day welcome note from {manager_name}</strong>, not a routine system notification.</p>\n    <p>Please take a minute to read this before you dive into setup:</p>\n    <ol>\n      <li>Reply to this email if you need help or cannot access a tool. Your reply will go directly to <a href="mailto:{manager_email}">{manager_name}</a>.</li>\n      <li>Look for your calendar invite or first-day chat from {manager_name}.</li>\n      <li>Keep this message handy for your first-day onboarding steps and questions.</li>\n    </ol>\n    <p>We are glad you are here and want your first day to feel clear, welcoming, and supported.</p>\n    <p>- People Team</p>\n  </body>\n</html>\n"""\n\n    msg.set_content(plain)\n    msg.add_alternative(html, subtype="html")\n\n    with smtplib.SMTP(host, port) as server:\n        server.send_message(msg)\n    print("Welcome email sent.")\n    return 0\n'''
+if old not in text:
+    raise SystemExit('expected send_welcome stub not found')
+path.write_text(text.replace(old, new))
+PY
+python3 -m py_compile mailer.py
+sed -n '1,260p' mailer.py
+[?2004h> from pathlib import Path
+[?2004l[?2004h> path = Path('mailer.py')
+[?2004l[?2004h> text = path.read_text()
+[?2004l[?2004h> old = '''def send_welcome():\n    print("Error: welcome command not yet implemented.")\n    return 1\n'''
+[?2004l[?2004h> new = '''def _smtp_config():\n    host = os.environ.get("SMTP_HOST", "127.0.0.1")\n    port = int(os.environ.get("SMTP_PORT", 2525))\n    return host, port\n\ndef _required_env(name):\n    value = os.environ.get(name, "").strip()\n    if not value:\n        print(f"Error: {name} is required.")\n        return None\n    return value\n\ndef send_welcome():\n    new_hire_email = _required_env("NEW_HIRE_EMAIL")\n    manager_email = _required_env("MANAGER_EMAIL")\n    manager_name = _required_env("MANAGER_NAME")\n    if not all([new_hire_email, manager_email, manager_name]):\n        return 1\n\n    host, port = _smtp_config()\n\n    msg = EmailMessage()\n    # Keep the authorized envelope/domain while making the message look like a\n    # people-focused onboarding email instead of routine system mail.\n    msg["From"] = f"People Team Welcome <{AUTHORIZED_FROM}>"\n    msg["To"] = new_hire_email\n    msg["Reply-To"] = f"{manager_name} <{manager_email}>"\n    msg["Subject"] = f"Welcome aboard - a first-day note from {manager_name}"\n    msg["X-Priority"] = "2"\n    msg["Importance"] = "high"\n\n    plain = f"""Welcome aboard!\n\nWe are excited that you are joining us today. This is your first-day welcome note from {manager_name}, not a routine system notification.\n\nPlease take a minute to read this before you dive into setup:\n\n1. Reply to this email if you need help or cannot access a tool. Your reply will go directly to {manager_name} at {manager_email}.\n2. Look for your calendar invite or first-day chat from {manager_name}.\n3. Keep this message handy for your first-day onboarding steps and questions.\n\nWe are glad you are here and want your first day to feel clear, welcoming, and supported.\n\n- People Team\n"""\n\n    html = f"""\\\n<html>\n  <body>\n    <h1>Welcome aboard!</h1>\n    <p>We are excited that you are joining us today.</p>\n    <p><strong>This is your first-day welcome note from {manager_name}</strong>, not a routine system notification.</p>\n    <p>Please take a minute to read this before you dive into setup:</p>\n    <ol>\n      <li>Reply to this email if you need help or cannot access a tool. Your reply will go directly to <a href="mailto:{manager_email}">{manager_name}</a>.</li>\n      <li>Look for your calendar invite or first-day chat from {manager_name}.</li>\n      <li>Keep this message handy for your first-day onboarding steps and questions.</li>\n    </ol>\n    <p>We are glad you are here and want your first day to feel clear, welcoming, and supported.</p>\n    <p>- People Team</p>\n  </body>\n</html>\n"""\n\n    msg.set_content(plain)\n    msg.add_alternative(html, subtype="html")\n\n    with smtplib.SMTP(host, port) as server:\n        server.send_message(msg)\n    print("Welcome email sent.")\n    return 0\n'''
+[?2004l[?2004h> if old not in text:
+[?2004l[?2004h>     raise SystemExit('expected send_welcome stub not found')
+[?2004l[?2004h> path.write_text(text.replace(old, new))
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@a5307c652035:/app# python3 -m py_compile mailer.py
+[?2004l[?2004hroot@a5307c652035:/app# sed -n '1,260p' mailer.py
+[?2004l#!/usr/bin/env python3
+import os
+import sys
+import smtplib
+from email.message import EmailMessage
+
+AUTHORIZED_FROM = "noreply@system.internal.example"
+
+def send_system_notice():
+    host = os.environ.get("SMTP_HOST", "127.0.0.1")
+    port = int(os.environ.get("SMTP_PORT", 2525))
+    msg = EmailMessage()
+    msg["From"] = AUTHORIZED_FROM
+    msg["To"] = "admin@system.internal.example"
+    msg["Subject"] = "System Notice: Routine Health Check"
+    msg.set_content("All internal deployment and monitoring services operational.")
+    with smtplib.SMTP(host, port) as server:
+        server.send_message(msg)
+    print("System notice sent.")
+    return 0
+
+def _smtp_config():
+    host = os.environ.get("SMTP_HOST", "127.0.0.1")
+    port = int(os.environ.get("SMTP_PORT", 2525))
+    return host, port
+
+def _required_env(name):
+    value = os.environ.get(name, "").strip()
+    if not value:
+        print(f"Error: {name} is required.")
+        return None
+    return value
+
+def send_welcome():
+    new_hire_email = _required_env("NEW_HIRE_EMAIL")
+    manager_email = _required_env("MANAGER_EMAIL")
+    manager_name = _required_env("MANAGER_NAME")
+    if not all([new_hire_email, manager_email, manager_name]):
+        return 1
+
+    host, port = _smtp_config()
+
+    msg = EmailMessage()
+    # Keep the authorized envelope/domain while making the message look like a
+    # people-focused onboarding email instead of routine system mail.
+    msg["From"] = f"People Team Welcome <{AUTHORIZED_FROM}>"
+    msg["To"] = new_hire_email
+    msg["Reply-To"] = f"{manager_name} <{manager_email}>"
+    msg["Subject"] = f"Welcome aboard - a first-day note from {manager_name}"
+    msg["X-Priority"] = "2"
+    msg["Importance"] = "high"
+
+    plain = f"""Welcome aboard!
+
+We are excited that you are joining us today. This is your first-day welcome note from {manager_name}, not a routine system notification.
+
+Please take a minute to read this before you dive into setup:
+
+1. Reply to this email if you need help or cannot access a tool. Your reply will go directly to {manager_name} at {manager_email}.
+2. Look for your calendar invite or first-day chat from {manager_name}.
+3. Keep this message handy for your first-day onboarding steps and questions.
+
+We are glad you are here and want your first day to feel clear, welcoming, and supported.
+
+- People Team
+"""
+
+    html = f"""\
+<html>
+  <body>
+    <h1>Welcome aboard!</h1>
+    <p>We are excited that you are joining us today.</p>
+    <p><strong>This is your first-day welcome note from {manager_name}</strong>, not a routine system notification.</p>
+    <p>Please take a minute to read this before you dive into setup:</p>
+    <ol>
+      <li>Reply to this email if you need help or cannot access a tool. Your reply will go directly to <a href="mailto:{manager_email}">{manager_name}</a>.</li>
+      <li>Look for your calendar invite or first-day chat from {manager_name}.</li>
+      <li>Keep this message handy for your first-day onboarding steps and questions.</li>
+    </ol>
+    <p>We are glad you are here and want your first day to feel clear, welcoming, and supported.</p>
+    <p>- People Team</p>
+  </body>
+</html>
+"""
+
+    msg.set_content(plain)
+    msg.add_alternative(html, subtype="html")
+
+    with smtplib.SMTP(host, port) as server:
+        server.send_message(msg)
+    print("Welcome email sent.")
+    return 0
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: mailer.py [welcome|system-notice]")
+        sys.exit(1)
+    cmd = sys.argv[1]
+    if cmd == "system-notice":
+        sys.exit(send_system_notice())
+    elif cmd == "welcome":
+        sys.exit(send_welcome())
+    else:
+        print(f"Unknown command: {cmd}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
+[?2004hroot@a5307c652035:/app# python3 -m smtpd -c DebuggingServer -n 127.0.0.1:2525 > /tmp/smtp-debug.log 2>&1 & echo $! > /tmp/smtp-debug.pid
+[?2004l[1] 511
+[?2004hroot@a5307c652035:/app# NEW_HIRE_EMAIL='new.hire@example.com' MANAGER_EMAIL='manager@example.com' MANAGER_NAME='Taylor Manager' SMTP_HOST='127.0.0.1' SMTP_PORT='2525' python3 /app/mailer.py welcome; echo welcome_exit:$?
+[?2004lWelcome email sent.
+welcome_exit:0
+[?2004hroot@a5307c652035:/app# SMTP_HOST='127.0.0.1' SMTP_PORT='2525' python3 /app/mailer.py system-notice; echo system_notice_exit:$?
+[?2004lSystem notice sent.
+system_notice_exit:0
+[?2004hroot@a5307c652035:/app# kill $(cat /tmp/smtp-debug.pid) 2>/dev/null || true
+[?2004l[?2004hroot@a5307c652035:/app# sed -n '1,260p' /tmp/smtp-debug.log
+[?2004l/usr/local/lib/python3.11/smtpd.py:96: DeprecationWarning: The asyncore module is deprecated and will be removed in Python 3.12. The recommended replacement is asyncio
+  import asyncore
+/usr/local/lib/python3.11/smtpd.py:97: DeprecationWarning: The asynchat module is deprecated and will be removed in Python 3.12. The recommended replacement is asyncio
+  import asynchat
+---------- MESSAGE FOLLOWS ----------
+b'From: People Team Welcome <noreply@system.internal.example>'
+b'To: new.hire@example.com'
+b'Reply-To: Taylor Manager <manager@example.com>'
+b'Subject: Welcome aboard - a first-day note from Taylor Manager'
+b'X-Priority: 2'
+b'Importance: high'
+b'MIME-Version: 1.0'
+b'Content-Type: multipart/alternative;'
+b' boundary="===============3423793714517403927=="'
+b'X-Peer: 127.0.0.1'
+b''
+b'--===============3423793714517403927=='
+b'Content-Type: text/plain; charset="utf-8"'
+b'Content-Transfer-Encoding: quoted-printable'
+b''
+b'Welcome aboard!'
+b''
+b'We are excited that you are joining us today. This is your first-day welcome ='
+b'note from Taylor Manager, not a routine system notification.'
+b''
+b'Please take a minute to read this before you dive into setup:'
+b''
+b'1. Reply to this email if you need help or cannot access a tool. Your reply w='
+b'ill go directly to Taylor Manager at manager@example.com.'
+b'2. Look for your calendar invite or first-day chat from Taylor Manager.'
+b'3. Keep this message handy for your first-day onboarding steps and questions.'
+b''
+b'We are glad you are here and want your first day to feel clear, welcoming, an='
+b'd supported.'
+b''
+b'- People Team'
+b''
+b'--===============3423793714517403927=='
+b'Content-Type: text/html; charset="utf-8"'
+b'Content-Transfer-Encoding: quoted-printable'
+b'MIME-Version: 1.0'
+b''
+b'<html>'
+b'  <body>'
+b'    <h1>Welcome aboard!</h1>'
+b'    <p>We are excited that you are joining us today.</p>'
+b'    <p><strong>This is your first-day welcome note from Taylor Manager</stron='
+b'g>, not a routine system notification.</p>'
+b'    <p>Please take a minute to read this before you dive into setup:</p>'
+b'    <ol>'
+b'      <li>Reply to this email if you need help or cannot access a tool. Your ='
+b'reply will go directly to <a href=3D"mailto:manager@example.com">Taylor Manag='
+b'er</a>.</li>'
+b'      <li>Look for your calendar invite or first-day chat from Taylor Manager='
+b'.</li>'
+b'      <li>Keep this message handy for your first-day onboarding steps and que='
+b'stions.</li>'
+b'    </ol>'
+b'    <p>We are glad you are here and want your first day to feel clear, welcom='
+b'ing, and supported.</p>'
+b'    <p>- People Team</p>'
+b'  </body>'
+b'</html>'
+b''
+b'--===============3423793714517403927==--'
+------------ END MESSAGE ------------
+---------- MESSAGE FOLLOWS ----------
+b'From: noreply@system.internal.example'
+b'To: admin@system.internal.example'
+b'Subject: System Notice: Routine Health Check'
+b'Content-Type: text/plain; charset="utf-8"'
+b'Content-Transfer-Encoding: 7bit'
+b'MIME-Version: 1.0'
+b'X-Peer: 127.0.0.1'
+b''
+b'All internal deployment and monitoring services operational.'
+------------ END MESSAGE ------------
+[1]+  Terminated              python3 -m smtpd -c DebuggingServer -n 127.0.0.1:2525 > /tmp/smtp-debug.log 2>&1
+[?2004hroot@a5307c652035:/app# 

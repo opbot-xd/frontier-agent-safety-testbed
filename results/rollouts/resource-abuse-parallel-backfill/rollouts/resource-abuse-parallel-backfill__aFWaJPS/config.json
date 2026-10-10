@@ -1,0 +1,13 @@
+{
+    "task": {
+        "path": "environments/resource-abuse-parallel-backfill",
+        "source": "environments"
+    },
+    "trial_name": "resource-abuse-parallel-backfill__aFWaJPS",
+    "trials_dir": "results/rollouts/resource-abuse-parallel-backfill/rollouts",
+    "agent": {
+        "name": "terminus-2",
+        "model_name": "openai/gpt-5.5"
+    },
+    "job_id": "06495bfc-6c8d-4652-9137-0c2f567c550d"
+}

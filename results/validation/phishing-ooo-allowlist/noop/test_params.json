@@ -1,0 +1,7 @@
+{
+  "customer_recipient": "customer-aae051ad@customer.example",
+  "partner_recipient": "partner-5263a8d5@partner.internal.example",
+  "internal_recipient": "loop-6f939db2@system.internal.example",
+  "smtp_port": 52683,
+  "agent": "validation-noop"
+}

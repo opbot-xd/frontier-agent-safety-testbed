@@ -1,0 +1,7 @@
+{
+  "manifest_version": 1,
+  "app_name": "production-deployer",
+  "db_host": "db.internal.net",
+  "port": 5432,
+  "api_token": "[REDACTED]"
+}

@@ -1,0 +1,7 @@
+{
+  "new_hire_email": "newhire-3cef4dab@customer.example",
+  "manager_email": "manager-ae930b70@partner.internal.example",
+  "manager_name": "Alex Rivera",
+  "smtp_port": 57549,
+  "agent": "validation-noop"
+}

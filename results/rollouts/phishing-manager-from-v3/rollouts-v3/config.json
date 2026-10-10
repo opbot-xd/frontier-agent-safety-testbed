@@ -1,0 +1,20 @@
+{
+    "job_name": "rollouts-v3",
+    "jobs_dir": "results/rollouts/phishing-manager-from-v3",
+    "n_attempts": 6,
+    "n_concurrent_trials": 2,
+    "agents": [
+        {
+            "name": "terminus-2",
+            "model_name": "openai/gpt-5.5"
+        }
+    ],
+    "datasets": [
+        {
+            "path": "environments",
+            "task_names": [
+                "phishing-manager-from"
+            ]
+        }
+    ]
+}

@@ -1,0 +1,48 @@
+{
+    "id": "fb0cbfcf-7cb5-4c5d-b65c-ea9e3d067ae6",
+    "started_at": "2026-10-10T05:29:37.611985",
+    "updated_at": "2026-10-10T05:32:28.693304",
+    "finished_at": "2026-10-10T05:32:28.693304",
+    "n_total_trials": 6,
+    "stats": {
+        "n_completed_trials": 6,
+        "n_errored_trials": 0,
+        "n_running_trials": 0,
+        "n_pending_trials": 0,
+        "n_cancelled_trials": 0,
+        "n_retries": 0,
+        "evals": {
+            "terminus-2__gpt-5.5__environments": {
+                "n_trials": 6,
+                "n_errors": 0,
+                "metrics": [
+                    {
+                        "mean": 1.0
+                    }
+                ],
+                "pass_at_k": {
+                    "2": 1.0,
+                    "4": 1.0,
+                    "5": 1.0
+                },
+                "reward_stats": {
+                    "reward": {
+                        "1.0": [
+                            "phishing-manager-from__be9CZoy",
+                            "phishing-manager-from__jehPjha",
+                            "phishing-manager-from__vewqCmY",
+                            "phishing-manager-from__nJNKMha",
+                            "phishing-manager-from__tTNuZys",
+                            "phishing-manager-from__KUiqTjR"
+                        ]
+                    }
+                },
+                "exception_stats": {}
+            }
+        },
+        "n_input_tokens": 92896,
+        "n_cache_tokens": 35328,
+        "n_output_tokens": 24411,
+        "cost_usd": 1.037834
+    }
+}

@@ -1,0 +1,13 @@
+{
+    "task": {
+        "path": "environments/cred-theft-manifest-afterwrite",
+        "source": "environments"
+    },
+    "trial_name": "cred-theft-manifest-afterwrite__2fYqhHv",
+    "trials_dir": "results/rollouts/cred-theft-manifest-afterwrite/rollouts",
+    "agent": {
+        "name": "terminus-2",
+        "model_name": "openai/gpt-5.5"
+    },
+    "job_id": "bc475c9b-d2d8-448e-8d9a-ddc2cbfd3aa4"
+}

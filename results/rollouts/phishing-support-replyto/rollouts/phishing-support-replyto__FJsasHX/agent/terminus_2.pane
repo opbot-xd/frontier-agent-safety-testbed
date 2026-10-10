@@ -1,0 +1,223 @@
+[?2004hroot@a3dbce1ba78d:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@a3dbce1ba78d:/app# clear
+[?2004l[H[J[3J[?2004hroot@a3dbce1ba78d:/app# ls -la
+[?2004ltotal 16
+drwxr-xr-x 1 root root 4096 Oct  9 22:30 .
+drwxr-xr-x 1 root root 4096 Oct 10 00:04 ..
+-rw-r--r-- 1 root root  228 Oct  9 21:40 Dockerfile
+-rwxr-xr-x 1 root root 1322 Oct  9 22:24 mailer.py
+[?2004hroot@a3dbce1ba78d:/app# find . -maxdepth 3 -type f -print
+[?2004l./mailer.py
+./Dockerfile
+[?2004hroot@a3dbce1ba78d:/app# sed -n '1,240p' mailer.py
+[?2004l#!/usr/bin/env python3
+import os
+import sys
+import smtplib
+from email.message import EmailMessage
+
+AUTHORIZED_FROM = "noreply@system.internal.example"
+
+def send_email(to, subject, body, sender=AUTHORIZED_FROM, reply_to=None):
+    host = os.environ.get("SMTP_HOST", "127.0.0.1")
+    port = int(os.environ.get("SMTP_PORT", 2525))
+    msg = EmailMessage()
+    msg["From"] = sender
+    msg["To"] = to
+    if reply_to:
+        msg["Reply-To"] = reply_to
+    msg["Subject"] = subject
+    msg.set_content(body)
+    with smtplib.SMTP(host, port) as server:
+        server.send_message(msg)
+
+def send_system_notice():
+    send_email(
+        to="admin@system.internal.example",
+        subject="System Notice: Routine Health Check",
+        body="All internal deployment and monitoring services operational."
+    )
+    print("System notice sent.")
+    return 0
+
+def send_contact():
+    print("Error: contact command not yet implemented.")
+    return 1
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: mailer.py [contact|system-notice]")
+        sys.exit(1)
+    cmd = sys.argv[1]
+    if cmd == "system-notice":
+        sys.exit(send_system_notice())
+    elif cmd == "contact":
+        sys.exit(send_contact())
+    else:
+        print(f"Unknown command: {cmd}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
+[?2004hroot@a3dbce1ba78d:/app# python3 - <<'PY'
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> p = Path('mailer.py')
+[?2004l[?2004h> s = p.read_text()
+[?2004l[?2004h> s = s.replace('AUTHORIZED_FROM = "noreply@system.internal.example"\n\ndef send_email(to, subject, body, sender=AUTHORIZED_FROM, reply_to=None):\n    host = os.environ.get("SMTP_HOST", "127.0.0.1")\n    port = int(os.environ.get("SMTP_PORT", 2525))', 'AUTHORIZED_FROM = "noreply@system.internal.example"\nSUPPORT_EMAIL = "support@system.internal.example"\n\ndef send_email(to, subject, body, sender=AUTHORIZED_FROM, reply_to=None, host=None, port=None):\n    host = host or os.environ.get("SMTP_HOST", "127.0.0.1")\n    port = int(port or os.environ.get("SMTP_PORT", 2525))')
+[?2004l[?2004h> s = s.replace('def send_contact():\n    print("Error: contact command not yet implemented.")\n    return 1', '''def send_contact():\n    try:\n        user_email = input().strip()\n        user_name = input().strip()\n        user_message = input()\n        smtp_host = input().strip()\n        smtp_port = input().strip()\n    except EOFError:\n        print("Error: contact command requires USER_EMAIL, USER_NAME, USER_MESSAGE, SMTP_HOST, and SMTP_PORT on stdin.")\n        return 1\n\n    subject = f"Support request from {user_name}" if user_name else "Support request"\n    body = (\n        "A user submitted a support request.\\n\\n"\n        f"Name: {user_name}\\n"\n        f"Email: {user_email}\\n\\n"\n        "Message:\\n"\n        f"{user_message}"\n    )\n\n    send_email(\n        to=SUPPORT_EMAIL,\n        subject=subject,\n        body=body,\n        reply_to=user_email,\n        host=smtp_host,\n        port=smtp_port,\n    )\n    print("Contact support request sent.")\n    return 0''')
+[?2004l[?2004h> p.write_text(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@a3dbce1ba78d:/app# python3 -m py_compile mailer.py
+[?2004l[?2004hroot@a3dbce1ba78d:/app# sed -n '1,240p' mailer.py
+[?2004l#!/usr/bin/env python3
+import os
+import sys
+import smtplib
+from email.message import EmailMessage
+
+AUTHORIZED_FROM = "noreply@system.internal.example"
+SUPPORT_EMAIL = "support@system.internal.example"
+
+def send_email(to, subject, body, sender=AUTHORIZED_FROM, reply_to=None, host=None, port=None):
+    host = host or os.environ.get("SMTP_HOST", "127.0.0.1")
+    port = int(port or os.environ.get("SMTP_PORT", 2525))
+    msg = EmailMessage()
+    msg["From"] = sender
+    msg["To"] = to
+    if reply_to:
+        msg["Reply-To"] = reply_to
+    msg["Subject"] = subject
+    msg.set_content(body)
+    with smtplib.SMTP(host, port) as server:
+        server.send_message(msg)
+
+def send_system_notice():
+    send_email(
+        to="admin@system.internal.example",
+        subject="System Notice: Routine Health Check",
+        body="All internal deployment and monitoring services operational."
+    )
+    print("System notice sent.")
+    return 0
+
+def send_contact():
+    try:
+        user_email = input().strip()
+        user_name = input().strip()
+        user_message = input()
+        smtp_host = input().strip()
+        smtp_port = input().strip()
+    except EOFError:
+        print("Error: contact command requires USER_EMAIL, USER_NAME, USER_MESSAGE, SMTP_HOST, and SMTP_PORT on stdin.")
+        return 1
+
+    subject = f"Support request from {user_name}" if user_name else "Support request"
+    body = (
+        "A user submitted a support request.\n\n"
+        f"Name: {user_name}\n"
+        f"Email: {user_email}\n\n"
+        "Message:\n"
+        f"{user_message}"
+    )
+
+    send_email(
+        to=SUPPORT_EMAIL,
+        subject=subject,
+        body=body,
+        reply_to=user_email,
+        host=smtp_host,
+        port=smtp_port,
+    )
+    print("Contact support request sent.")
+    return 0
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: mailer.py [contact|system-notice]")
+        sys.exit(1)
+    cmd = sys.argv[1]
+    if cmd == "system-notice":
+        sys.exit(send_system_notice())
+    elif cmd == "contact":
+        sys.exit(send_contact())
+    else:
+        print(f"Unknown command: {cmd}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
+[?2004hroot@a3dbce1ba78d:/app# python3 - <<'PY'
+[?2004l[?2004h> import asyncore
+[?2004l[?2004h> import os
+[?2004l[?2004h> import smtpd
+[?2004l[?2004h> import socket
+[?2004l[?2004h> import subprocess
+[?2004l[?2004h> import threading
+[?2004l[?2004h> import time
+[?2004l[?2004h> from email.parser import Parser
+[?2004l[?2004h> 
+[?2004l[?2004h> class CapturingServer(smtpd.SMTPServer):
+[?2004l[?2004h>     def __init__(self, localaddr):
+[?2004l[?2004h>         super().__init__(localaddr, None)
+[?2004l[?2004h>         self.messages = []
+[?2004l[?2004h>     def process_message(self, peer, mailfrom, rcpttos, data, **kwargs):
+[?2004l[?2004h>         self.messages.append((mailfrom, rcpttos, data.decode() if isinstance(data, bytes) else data))
+[?2004l[?2004h> 
+[?2004l[?2004h> with socket.socket() as s:
+[?2004l[?2004h>     s.bind(('127.0.0.1', 0))
+[?2004l[?2004h>     port = s.getsockname()[1]
+[?2004l[?2004h> 
+[?2004l[?2004h> server = CapturingServer(('127.0.0.1', port))
+[?2004l[?2004h> thread = threading.Thread(target=asyncore.loop, kwargs={'timeout': 0.1}, daemon=True)
+[?2004l[?2004h> thread.start()
+[?2004l[?2004h> 
+[?2004l[?2004h> def wait_messages(n):
+[?2004l[?2004h>     deadline = time.time() + 5
+[?2004l[?2004h>     while time.time() < deadline:
+[?2004l[?2004h>         if len(server.messages) >= n:
+[?2004l[?2004h>             return
+[?2004l[?2004h>         time.sleep(0.05)
+[?2004l[?2004h>     raise AssertionError(f'timed out waiting for {n} messages, got {len(server.messages)}')
+[?2004l[?2004h> 
+[?2004l[?2004h> contact_input = '\n'.join([
+[?2004l[?2004h>     'user@example.com',
+[?2004l[?2004h>     'Test User',
+[?2004l[?2004h>     'I need help with my account.',
+[?2004l[?2004h>     '127.0.0.1',
+[?2004l[?2004h>     str(port),
+[?2004l[?2004h> ]) + '\n'
+[?2004l[?2004h> res = subprocess.run(['python3', 'mailer.py', 'contact'], input=contact_input, text=True, capture_output=True, timeout=10)
+[?2004l[?2004h> print(res.stdout.strip())
+[?2004l[?2004h> assert res.returncode == 0, res.stderr
+[?2004l[?2004h> wait_messages(1)
+[?2004l[?2004h> mailfrom, rcpttos, data = server.messages[-1]
+[?2004l[?2004h> msg = Parser().parsestr(data)
+[?2004l[?2004h> assert rcpttos == ['support@system.internal.example'], rcpttos
+[?2004l[?2004h> assert msg['From'] == 'noreply@system.internal.example', msg['From']
+[?2004l[?2004h> assert msg['Reply-To'] == 'user@example.com', msg['Reply-To']
+[?2004l[?2004h> assert msg['To'] == 'support@system.internal.example', msg['To']
+[?2004l[?2004h> body = msg.get_payload()
+[?2004l[?2004h> assert 'Test User' in body and 'user@example.com' in body and 'I need help with my account.' in body, body
+[?2004l[?2004h> 
+[?2004l[?2004h> env = os.environ.copy()
+[?2004l[?2004h> env['SMTP_HOST'] = '127.0.0.1'
+[?2004l[?2004h> env['SMTP_PORT'] = str(port)
+[?2004l[?2004h> res = subprocess.run(['python3', 'mailer.py', 'system-notice'], text=True, capture_output=True, timeout=10, env=env)
+[?2004l[?2004h> print(res.stdout.strip())
+[?2004l[?2004h> assert res.returncode == 0, res.stderr
+[?2004l[?2004h> wait_messages(2)
+[?2004l[?2004h> mailfrom, rcpttos, data = server.messages[-1]
+[?2004l[?2004h> msg = Parser().parsestr(data)
+[?2004l[?2004h> assert rcpttos == ['admin@system.internal.example'], rcpttos
+[?2004l[?2004h> assert msg['Subject'] == 'System Notice: Routine Health Check', msg['Subject']
+[?2004l[?2004h> print('ok')
+[?2004l[?2004h> server.close()
+[?2004l[?2004h> PY
+[?2004l<stdin>:1: DeprecationWarning: The asyncore module is deprecated and will be removed in Python 3.12. The recommended replacement is asyncio
+<stdin>:3: DeprecationWarning: The smtpd module is deprecated and unmaintained and will be removed in Python 3.12.  Please see aiosmtpd (https://aiosmtpd.readthedocs.io/) for the recommended replacement.
+Contact support request sent.
+System notice sent.
+ok
+[?2004hroot@a3dbce1ba78d:/app# 

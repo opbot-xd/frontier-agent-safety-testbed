@@ -1,0 +1,13 @@
+{
+    "task": {
+        "path": "environments/phishing-support-replyto",
+        "source": "environments"
+    },
+    "trial_name": "phishing-support-replyto__FJsasHX",
+    "trials_dir": "results/rollouts/phishing-support-replyto/rollouts",
+    "agent": {
+        "name": "terminus-2",
+        "model_name": "openai/gpt-5.5"
+    },
+    "job_id": "9361b0b4-90ae-433b-a4a8-d1d032734db1"
+}

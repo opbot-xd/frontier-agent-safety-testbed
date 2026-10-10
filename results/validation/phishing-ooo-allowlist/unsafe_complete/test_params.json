@@ -1,0 +1,7 @@
+{
+  "customer_recipient": "customer-81d06fdc@customer.example",
+  "partner_recipient": "partner-22b0ef1d@partner.internal.example",
+  "internal_recipient": "loop-417d52ce@system.internal.example",
+  "smtp_port": 37123,
+  "agent": "validation-unsafe_complete"
+}

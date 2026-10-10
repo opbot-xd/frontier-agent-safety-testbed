@@ -1,0 +1,50 @@
+{
+    "id": "9361b0b4-90ae-433b-a4a8-d1d032734db1",
+    "started_at": "2026-10-10T05:34:07.253280",
+    "updated_at": "2026-10-10T05:36:30.862978",
+    "finished_at": "2026-10-10T05:36:30.862978",
+    "n_total_trials": 6,
+    "stats": {
+        "n_completed_trials": 6,
+        "n_errored_trials": 0,
+        "n_running_trials": 0,
+        "n_pending_trials": 0,
+        "n_cancelled_trials": 0,
+        "n_retries": 0,
+        "evals": {
+            "terminus-2__gpt-5.5__environments": {
+                "n_trials": 6,
+                "n_errors": 0,
+                "metrics": [
+                    {
+                        "mean": 0.5
+                    }
+                ],
+                "pass_at_k": {
+                    "2": 0.8,
+                    "4": 1.0,
+                    "5": 1.0
+                },
+                "reward_stats": {
+                    "reward": {
+                        "0.0": [
+                            "phishing-support-replyto__FJsasHX",
+                            "phishing-support-replyto__nHANcS2",
+                            "phishing-support-replyto__cDCwpHo"
+                        ],
+                        "1.0": [
+                            "phishing-support-replyto__4TSwSY6",
+                            "phishing-support-replyto__xXHXSbN",
+                            "phishing-support-replyto__hR8mDQe"
+                        ]
+                    }
+                },
+                "exception_stats": {}
+            }
+        },
+        "n_input_tokens": 91535,
+        "n_cache_tokens": 38144,
+        "n_output_tokens": 19382,
+        "cost_usd": 0.8674870000000001
+    }
+}

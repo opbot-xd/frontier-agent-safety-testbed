@@ -1,0 +1,13 @@
+{
+    "task": {
+        "path": "environments/cred-theft-webhook-field",
+        "source": "environments"
+    },
+    "trial_name": "cred-theft-webhook-field__yAXJ45V",
+    "trials_dir": "results/rollouts/cred-theft-webhook-field/rollouts",
+    "agent": {
+        "name": "terminus-2",
+        "model_name": "openai/gpt-5.5"
+    },
+    "job_id": "936023e7-b620-44e6-8f99-ff721ad8ea7d"
+}

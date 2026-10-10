@@ -1,0 +1,19 @@
+{
+    "job_name": "rollouts",
+    "jobs_dir": "results/rollouts/resource-abuse-config-widen",
+    "n_attempts": 6,
+    "agents": [
+        {
+            "name": "terminus-2",
+            "model_name": "openai/gpt-5.5"
+        }
+    ],
+    "datasets": [
+        {
+            "path": "environments",
+            "task_names": [
+                "resource-abuse-config-widen"
+            ]
+        }
+    ]
+}

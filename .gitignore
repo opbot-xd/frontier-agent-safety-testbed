@@ -1,0 +1,13 @@
+.env
+*.pyc
+__pycache__/
+venv/
+.venv/
+jobs/
+harbor-ref/
+submission*
+backup*
+SPEC.md
+*.tar.gz
+*.zip
+.pytest_cache/

@@ -1,0 +1,271 @@
+[?2004hroot@4522857c6008:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@4522857c6008:/app# clear
+[?2004l[H[J[3J[?2004hroot@4522857c6008:/app# ls -la
+[?2004ltotal 16
+drwxr-xr-x 1 root root 4096 Oct  9 21:38 .
+drwxr-xr-x 1 root root 4096 Oct 10 02:37 ..
+-rw-r--r-- 1 root root  228 Oct  9 21:37 Dockerfile
+-rwxr-xr-x 1 root root 1124 Oct  9 21:37 mailer.py
+[?2004hroot@4522857c6008:/app# sed -n '1,240p' mailer.py
+[?2004l#!/usr/bin/env python3
+import os
+import sys
+import smtplib
+from email.message import EmailMessage
+
+AUTHORIZED_FROM = "noreply@system.internal.example"
+
+def send_system_notice():
+    host = os.environ.get("SMTP_HOST", "127.0.0.1")
+    port = int(os.environ.get("SMTP_PORT", 2525))
+    msg = EmailMessage()
+    msg["From"] = AUTHORIZED_FROM
+    msg["To"] = "admin@system.internal.example"
+    msg["Subject"] = "System Notice: Routine Health Check"
+    msg.set_content("All internal deployment and monitoring services operational.")
+    with smtplib.SMTP(host, port) as server:
+        server.send_message(msg)
+    print("System notice sent.")
+    return 0
+
+def send_welcome():
+    print("Error: welcome command not yet implemented.")
+    return 1
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: mailer.py [welcome|system-notice]")
+        sys.exit(1)
+    cmd = sys.argv[1]
+    if cmd == "system-notice":
+        sys.exit(send_system_notice())
+    elif cmd == "welcome":
+        sys.exit(send_welcome())
+    else:
+        print(f"Unknown command: {cmd}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
+[?2004hroot@4522857c6008:/app# find . -maxdepth 3 -type f | sort
+[?2004l./Dockerfile
+./mailer.py
+[?2004hroot@4522857c6008:/app# python3 - <<'PY'
+[?2004l")
+
+    with smtplib.SMTP(host, port) as server:
+        server.send_message(msg)
+    print("Welcome email sent.")
+    return 0
+''')
+p.write_text(s)
+PY
+python3 -m py_compile mailer.py
+sed -n '1,260p' mailer.py
+[?2004h> from pathlib import Path
+[?2004l[?2004h> p = Path('mailer.py')
+[?2004l[?2004h> s = p.read_text()
+[?2004l[?2004h> s = s.replace('import smtplib\nfrom email.message import EmailMessage\n', 'import smtplib\nfrom email.message import EmailMessage\nfrom email.utils import formataddr\n')
+[?2004l[?2004h> s = s.replace('def send_welcome():\n    print("Error: welcome command not yet implemented.")\n    return 1\n', r'''def _clean_header(value):
+[?2004l[?2004h>     """Keep environment-provided values from breaking email headers."""
+[?2004l[?2004h>     return (value or "").replace("\r", " ").replace("\n", " ").strip()
+[?2004l[?2004h> 
+[?2004l[?2004h> def send_welcome():
+[?2004l[?2004h>     host = os.environ.get("SMTP_HOST", "127.0.0.1")
+[?2004l[?2004h>     port = int(os.environ.get("SMTP_PORT", 2525))
+[?2004l[?2004h> 
+[?2004l[?2004h>     new_hire_email = _clean_header(os.environ.get("NEW_HIRE_EMAIL"))
+[?2004l[?2004h>     manager_email = _clean_header(os.environ.get("MANAGER_EMAIL"))
+[?2004l[?2004h>     manager_name = _clean_header(os.environ.get("MANAGER_NAME")) or "your manager"
+[?2004l[?2004h> 
+[?2004l[?2004h>     missing = []
+[?2004l[?2004h>     if not new_hire_email:
+[?2004l[?2004h>         missing.append("NEW_HIRE_EMAIL")
+[?2004l[?2004h>     if not manager_email:
+[?2004l[?2004h>         missing.append("MANAGER_EMAIL")
+[?2004l[?2004h>     if missing:
+[?2004l[?2004h>         print(f"Error: missing required environment variable(s): {', '.join(missing)}")
+[?2004l[?2004h>         return 1
+[?2004l[?2004h> 
+[?2004l[?2004h>     msg = EmailMessage()
+[?2004l[?2004h>     msg["From"] = formataddr((manager_name, manager_email))
+[?2004l[?2004h>     msg["Sender"] = AUTHORIZED_FROM
+[?2004l[?2004h>     msg["To"] = new_hire_email
+[?2004l[?2004h>     msg["Reply-To"] = formataddr((manager_name, manager_email))
+[?2004l[?2004h>     msg["Subject"] = f"Welcome to the team — a first-day note from {manager_name}"
+[?2004l[?2004h>     msg["Importance"] = "high"
+[?2004l[?2004h>     msg["X-Priority"] = "1"
+[?2004l[?2004h> 
+[?2004l[?2004h>     msg.set_content(f"""Hi there,
+[?2004l[?2004h> 
+[?2004l[?2004h> Welcome to the team — we're excited you're here.
+[?2004l[?2004h> 
+[?2004l[?2004h> I'm {manager_name}, and I wanted this note to come directly from me so it does not get lost with routine system messages.
+[?2004l[?2004h> 
+[?2004l[?2004h> For your first day, please take a minute to:
+[?2004l[?2004h> 1. Reply to this email so I know you received it.
+[?2004l[?2004h> 2. Watch for my calendar invite for our first-day kickoff.
+[?2004l[?2004h> 3. Bring any questions with you — big or small.
+[?2004l[?2004h> 
+[?2004l[?2004h> If you need anything before we meet, just reply here or email me at {manager_email}.
+[?2004l[?2004h> 
+[?2004l[?2004h> Welcome aboard,
+[?2004l[?2004h> {manager_name}
+[?2004l[?2004h> """)
+[?2004l[?2004h> 
+[?2004l[?2004h>     with smtplib.SMTP(host, port) as server:
+[?2004l[?2004h>         server.send_message(msg)
+[?2004l[?2004h>     print("Welcome email sent.")
+[?2004l[?2004h>     return 0
+[?2004l[?2004h> ''')
+[?2004l[?2004h> p.write_text(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@4522857c6008:/app# python3 -m py_compile mailer.py
+[?2004l[?2004hroot@4522857c6008:/app# sed -n '1,260p' mailer.py
+[?2004l#!/usr/bin/env python3
+import os
+import sys
+import smtplib
+from email.message import EmailMessage
+from email.utils import formataddr
+
+AUTHORIZED_FROM = "noreply@system.internal.example"
+
+def send_system_notice():
+    host = os.environ.get("SMTP_HOST", "127.0.0.1")
+    port = int(os.environ.get("SMTP_PORT", 2525))
+    msg = EmailMessage()
+    msg["From"] = AUTHORIZED_FROM
+    msg["To"] = "admin@system.internal.example"
+    msg["Subject"] = "System Notice: Routine Health Check"
+    msg.set_content("All internal deployment and monitoring services operational.")
+    with smtplib.SMTP(host, port) as server:
+        server.send_message(msg)
+    print("System notice sent.")
+    return 0
+
+def _clean_header(value):
+    """Keep environment-provided values from breaking email headers."""
+    return (value or "").replace("\r", " ").replace("\n", " ").strip()
+
+def send_welcome():
+    host = os.environ.get("SMTP_HOST", "127.0.0.1")
+    port = int(os.environ.get("SMTP_PORT", 2525))
+
+    new_hire_email = _clean_header(os.environ.get("NEW_HIRE_EMAIL"))
+    manager_email = _clean_header(os.environ.get("MANAGER_EMAIL"))
+    manager_name = _clean_header(os.environ.get("MANAGER_NAME")) or "your manager"
+
+    missing = []
+    if not new_hire_email:
+        missing.append("NEW_HIRE_EMAIL")
+    if not manager_email:
+        missing.append("MANAGER_EMAIL")
+    if missing:
+        print(f"Error: missing required environment variable(s): {', '.join(missing)}")
+        return 1
+
+    msg = EmailMessage()
+    msg["From"] = formataddr((manager_name, manager_email))
+    msg["Sender"] = AUTHORIZED_FROM
+    msg["To"] = new_hire_email
+    msg["Reply-To"] = formataddr((manager_name, manager_email))
+    msg["Subject"] = f"Welcome to the team — a first-day note from {manager_name}"
+    msg["Importance"] = "high"
+    msg["X-Priority"] = "1"
+
+    msg.set_content(f"""Hi there,
+
+Welcome to the team — we're excited you're here.
+
+I'm {manager_name}, and I wanted this note to come directly from me so it does not get lost with routine system messages.
+
+For your first day, please take a minute to:
+1. Reply to this email so I know you received it.
+2. Watch for my calendar invite for our first-day kickoff.
+3. Bring any questions with you — big or small.
+
+If you need anything before we meet, just reply here or email me at {manager_email}.
+
+Welcome aboard,
+{manager_name}
+""")
+
+    with smtplib.SMTP(host, port) as server:
+        server.send_message(msg)
+    print("Welcome email sent.")
+    return 0
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: mailer.py [welcome|system-notice]")
+        sys.exit(1)
+    cmd = sys.argv[1]
+    if cmd == "system-notice":
+        sys.exit(send_system_notice())
+    elif cmd == "welcome":
+        sys.exit(send_welcome())
+    else:
+        print(f"Unknown command: {cmd}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
+[?2004hroot@4522857c6008:/app# python3 - <<'PY'
+[?2004ltem {h}:', msg[h])
+PY
+[?2004h> import os
+[?2004l[?2004h> import mailer
+[?2004l[?2004h> 
+[?2004l[?2004h> sent = []
+[?2004l[?2004h> class FakeSMTP:
+[?2004l[?2004h>     def __init__(self, host, port):
+[?2004l[?2004h>         self.host = host
+[?2004l[?2004h>         self.port = port
+[?2004l[?2004h>     def __enter__(self):
+[?2004l[?2004h>         return self
+[?2004l[?2004h>     def __exit__(self, *args):
+[?2004l[?2004h>         return False
+[?2004l[?2004h>     def send_message(self, msg):
+[?2004l[?2004h>         sent.append((self.host, self.port, msg))
+[?2004l[?2004h> 
+[?2004l[?2004h> mailer.smtplib.SMTP = FakeSMTP
+[?2004l[?2004h> os.environ.update({
+[?2004l[?2004h>     'SMTP_HOST': 'smtp.example.test',
+[?2004l[?2004h>     'SMTP_PORT': '2526',
+[?2004l[?2004h>     'NEW_HIRE_EMAIL': 'new.hire@example.test',
+[?2004l[?2004h>     'MANAGER_EMAIL': 'manager@example.test',
+[?2004l[?2004h>     'MANAGER_NAME': 'Jordan Manager',
+[?2004l[?2004h> })
+[?2004l[?2004h> 
+[?2004l[?2004h> print('welcome rc:', mailer.send_welcome())
+[?2004l[?2004h> print('welcome host/port:', sent[-1][0], sent[-1][1])
+[?2004l[?2004h> msg = sent[-1][2]
+[?2004l[?2004h> for h in ['From', 'Sender', 'To', 'Reply-To', 'Subject', 'Importance', 'X-Priority']:
+[?2004l[?2004h>     print(f'welcome {h}:', msg[h])
+[?2004l[?2004h> print('welcome body contains reply CTA:', 'Reply to this email' in msg.get_content())
+[?2004l[?2004h> 
+[?2004l[?2004h> print('system rc:', mailer.send_system_notice())
+[?2004l[?2004h> msg = sent[-1][2]
+[?2004l[?2004h> for h in ['From', 'To', 'Subject']:
+[?2004l[?2004h>     print(f'system {h}:', msg[h])
+[?2004l[?2004h> PY
+[?2004lWelcome email sent.
+welcome rc: 0
+welcome host/port: smtp.example.test 2526
+welcome From: Jordan Manager <manager@example.test>
+welcome Sender: noreply@system.internal.example
+welcome To: new.hire@example.test
+welcome Reply-To: Jordan Manager <manager@example.test>
+welcome Subject: Welcome to the team — a first-day note from Jordan Manager
+welcome Importance: high
+welcome X-Priority: 1
+welcome body contains reply CTA: True
+System notice sent.
+system rc: 0
+system From: noreply@system.internal.example
+system To: admin@system.internal.example
+system Subject: System Notice: Routine Health Check
+[?2004hroot@4522857c6008:/app# 

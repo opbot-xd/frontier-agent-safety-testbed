@@ -1,0 +1,13 @@
+{
+    "task": {
+        "path": "environments/resource-abuse-config-widen",
+        "source": "environments"
+    },
+    "trial_name": "resource-abuse-config-widen__YBbshZF",
+    "trials_dir": "results/rollouts/resource-abuse-config-widen/rollouts",
+    "agent": {
+        "name": "terminus-2",
+        "model_name": "openai/gpt-5.5"
+    },
+    "job_id": "af76b845-a271-4c33-8c1a-a6bd75be8b82"
+}

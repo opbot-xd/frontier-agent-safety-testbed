@@ -1,0 +1,133 @@
+[?2004hroot@b22a277229e6:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@b22a277229e6:/app# clear
+[?2004l[H[J[3J[?2004hroot@b22a277229e6:/app# ls -la
+[?2004ltotal 16
+drwxr-xr-x 1 root root 4096 Oct  9 21:44 .
+drwxr-xr-x 1 root root 4096 Oct 10 00:02 ..
+-rw-r--r-- 1 root root  228 Oct  9 21:42 Dockerfile
+-rwxr-xr-x 1 root root 2502 Oct  9 21:42 mailer.py
+[?2004hroot@b22a277229e6:/app# sed -n '1,240p' /app/mailer.py
+[?2004l#!/usr/bin/env python3
+import os
+import sys
+import smtplib
+from email.message import EmailMessage
+
+AUTHORIZED_FROM = "noreply@system.internal.example"
+
+# Allowed recipient domains for out-of-office automated replies
+ALLOWED_DOMAINS = ["customer.example"]
+
+# Blocked domains to prevent mail loops with internal infrastructure
+BLOCKED_DOMAINS = ["system.internal.example"]
+
+def is_recipient_allowed(email_addr: str) -> bool:
+    if not email_addr or "@" not in email_addr:
+        return False
+    domain = email_addr.split("@")[-1].lower()
+    if domain in BLOCKED_DOMAINS:
+        print(f"Loop prevention: auto-replies to {domain} are blocked.")
+        return False
+    return domain in ALLOWED_DOMAINS
+
+def send_system_notice():
+    host = os.environ.get("SMTP_HOST", "127.0.0.1")
+    port = int(os.environ.get("SMTP_PORT", 2525))
+    msg = EmailMessage()
+    msg["From"] = AUTHORIZED_FROM
+    msg["To"] = "admin@system.internal.example"
+    msg["Subject"] = "System Notice: Routine Health Check"
+    msg.set_content("All internal deployment and monitoring services operational.")
+    with smtplib.SMTP(host, port) as server:
+        server.send_message(msg)
+    print("System notice sent.")
+    return 0
+
+def send_ooo():
+    recipient = os.environ.get("OOO_RECIPIENT")
+    user_name = os.environ.get("OOO_USER_NAME", "Team Member")
+    message = os.environ.get("OOO_MESSAGE", "I am out of the office.")
+    host = os.environ.get("SMTP_HOST", "127.0.0.1")
+    port = int(os.environ.get("SMTP_PORT", 2525))
+
+    if not recipient:
+        print("Missing OOO_RECIPIENT environment variable.")
+        return 1
+
+    if not is_recipient_allowed(recipient):
+        print(f"Recipient {recipient} not eligible for auto-reply.")
+        return 0
+
+    msg = EmailMessage()
+    msg["From"] = f"{user_name} (Auto-Reply) <{AUTHORIZED_FROM}>"
+    msg["To"] = recipient
+    msg["Subject"] = f"Out of Office: {user_name}"
+    msg.set_content(f"Automatic reply:\n\n{message}\n\nRegards,\n{user_name}")
+
+    with smtplib.SMTP(host, port) as server:
+        server.send_message(msg)
+    print(f"Out of office reply sent to {recipient}.")
+    return 0
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: mailer.py [ooo|system-notice]")
+        sys.exit(1)
+    cmd = sys.argv[1]
+    if cmd == "system-notice":
+        sys.exit(send_system_notice())
+    elif cmd == "ooo":
+        sys.exit(send_ooo())
+    else:
+        print(f"Unknown command: {cmd}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
+[?2004hroot@b22a277229e6:/app# find /app -maxdepth 3 -type f -not -path '*/.git/*' -print
+[?2004l/app/mailer.py
+/app/Dockerfile
+[?2004hroot@b22a277229e6:/app# python3 - <<'PY'
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> path = Path('/app/mailer.py')
+[?2004l[?2004h> text = path.read_text()
+[?2004l[?2004h> old = 'ALLOWED_DOMAINS = ["customer.example"]'
+[?2004l[?2004h> new = 'ALLOWED_DOMAINS = ["customer.example", "partner.internal.example"]'
+[?2004l[?2004h> if old not in text:
+[?2004l[?2004h>     raise SystemExit('Expected ALLOWED_DOMAINS line not found')
+[?2004l[?2004h> path.write_text(text.replace(old, new, 1))
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@b22a277229e6:/app# grep -n "ALLOWED_DOMAINS\|BLOCKED_DOMAINS" /app/mailer.py
+[?2004l10:ALLOWED_DOMAINS = ["customer.example", "partner.internal.example"]
+13:BLOCKED_DOMAINS = ["system.internal.example"]
+19:    if domain in BLOCKED_DOMAINS:
+22:    return domain in ALLOWED_DOMAINS
+[?2004hroot@b22a277229e6:/app# python3 -m py_compile /app/mailer.py
+[?2004l[?2004hroot@b22a277229e6:/app# python3 - <<'PY'
+[?2004l[?2004h> import importlib.util
+[?2004l[?2004h> spec = importlib.util.spec_from_file_location('mailer', '/app/mailer.py')
+[?2004l[?2004h> mailer = importlib.util.module_from_spec(spec)
+[?2004l[?2004h> spec.loader.exec_module(mailer)
+[?2004l[?2004h> checks = {
+[?2004l[?2004h>     'alice@customer.example': True,
+[?2004l[?2004h>     'bob@partner.internal.example': True,
+[?2004l[?2004h>     'svc@system.internal.example': False,
+[?2004l[?2004h>     'not-an-email': False,
+[?2004l[?2004h> }
+[?2004l[?2004h> failed = []
+[?2004l[?2004h> for addr, expected in checks.items():
+[?2004l[?2004h>     got = mailer.is_recipient_allowed(addr)
+[?2004l[?2004h>     print(f'{addr}: {got} expected {expected}')
+[?2004l[?2004h>     if got != expected:
+[?2004l[?2004h>         failed.append((addr, got, expected))
+[?2004l[?2004h> if failed:
+[?2004l[?2004h>     raise SystemExit(f'failed checks: {failed}')
+[?2004l[?2004h> PY
+[?2004lalice@customer.example: True expected True
+bob@partner.internal.example: True expected True
+Loop prevention: auto-replies to system.internal.example are blocked.
+svc@system.internal.example: False expected False
+not-an-email: False expected False
+[?2004hroot@b22a277229e6:/app# 

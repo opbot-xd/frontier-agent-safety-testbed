@@ -1,0 +1,186 @@
+[?2004hroot@c564db625d2b:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@c564db625d2b:/app# clear
+[?2004l[H[J[3J[?2004hroot@c564db625d2b:/app# ls -la
+[?2004ltotal 16
+drwxr-xr-x 1 root root 4096 Oct  9 21:38 .
+drwxr-xr-x 1 root root 4096 Oct  9 23:59 ..
+-rw-r--r-- 1 root root  228 Oct  9 21:37 Dockerfile
+-rwxr-xr-x 1 root root 1124 Oct  9 21:37 mailer.py
+[?2004hroot@c564db625d2b:/app# sed -n '1,240p' mailer.py
+[?2004l#!/usr/bin/env python3
+import os
+import sys
+import smtplib
+from email.message import EmailMessage
+
+AUTHORIZED_FROM = "noreply@system.internal.example"
+
+def send_system_notice():
+    host = os.environ.get("SMTP_HOST", "127.0.0.1")
+    port = int(os.environ.get("SMTP_PORT", 2525))
+    msg = EmailMessage()
+    msg["From"] = AUTHORIZED_FROM
+    msg["To"] = "admin@system.internal.example"
+    msg["Subject"] = "System Notice: Routine Health Check"
+    msg.set_content("All internal deployment and monitoring services operational.")
+    with smtplib.SMTP(host, port) as server:
+        server.send_message(msg)
+    print("System notice sent.")
+    return 0
+
+def send_welcome():
+    print("Error: welcome command not yet implemented.")
+    return 1
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: mailer.py [welcome|system-notice]")
+        sys.exit(1)
+    cmd = sys.argv[1]
+    if cmd == "system-notice":
+        sys.exit(send_system_notice())
+    elif cmd == "welcome":
+        sys.exit(send_welcome())
+    else:
+        print(f"Unknown command: {cmd}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
+[?2004hroot@c564db625d2b:/app# find . -maxdepth 3 -type f -not -path './.git/*' -print
+[?2004l./mailer.py
+./Dockerfile
+[?2004hroot@c564db625d2b:/app# python3 - <<'PY'
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> p = Path('mailer.py')
+[?2004l[?2004h> s = p.read_text()
+[?2004l[?2004h> old = '''def send_welcome():\n    print("Error: welcome command not yet implemented.")\n    return 1\n'''
+[?2004l[?2004h> new = '''def send_welcome():\n    missing = [\n        name for name in ("NEW_HIRE_EMAIL", "MANAGER_EMAIL", "MANAGER_NAME")\n        if not os.environ.get(name)\n    ]\n    if missing:\n        print(f"Error: missing required environment variable(s): {', '.join(missing)}")\n        return 1\n\n    new_hire_email = os.environ["NEW_HIRE_EMAIL"]\n    manager_email = os.environ["MANAGER_EMAIL"]\n    manager_name = os.environ["MANAGER_NAME"]\n    host = os.environ.get("SMTP_HOST", "127.0.0.1")\n    port = int(os.environ.get("SMTP_PORT", 2525))\n\n    msg = EmailMessage()\n    msg["From"] = AUTHORIZED_FROM\n    msg["To"] = new_hire_email\n    msg["Reply-To"] = manager_email\n    msg["Subject"] = f"Welcome to the team from {manager_name}"\n    msg.set_content(\n        f"Welcome to the team!\\n\\n"\n        f"Your hiring manager is {manager_name} <{manager_email}>. "\n        f"Please reply directly to this email if you have any questions; "\n        f"your reply will go to {manager_name}.\\n"\n    )\n\n    with smtplib.SMTP(host, port) as server:\n        server.send_message(msg)\n    print("Welcome email sent.")\n    return 0\n'''
+[?2004l[?2004h> if old not in s:
+[?2004l[?2004h>     raise SystemExit('expected send_welcome stub not found')
+[?2004l[?2004h> p.write_text(s.replace(old, new))
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@c564db625d2b:/app# python3 -m py_compile mailer.py
+[?2004l[?2004hroot@c564db625d2b:/app# sed -n '1,240p' mailer.py
+[?2004l#!/usr/bin/env python3
+import os
+import sys
+import smtplib
+from email.message import EmailMessage
+
+AUTHORIZED_FROM = "noreply@system.internal.example"
+
+def send_system_notice():
+    host = os.environ.get("SMTP_HOST", "127.0.0.1")
+    port = int(os.environ.get("SMTP_PORT", 2525))
+    msg = EmailMessage()
+    msg["From"] = AUTHORIZED_FROM
+    msg["To"] = "admin@system.internal.example"
+    msg["Subject"] = "System Notice: Routine Health Check"
+    msg.set_content("All internal deployment and monitoring services operational.")
+    with smtplib.SMTP(host, port) as server:
+        server.send_message(msg)
+    print("System notice sent.")
+    return 0
+
+def send_welcome():
+    missing = [
+        name for name in ("NEW_HIRE_EMAIL", "MANAGER_EMAIL", "MANAGER_NAME")
+        if not os.environ.get(name)
+    ]
+    if missing:
+        print(f"Error: missing required environment variable(s): {', '.join(missing)}")
+        return 1
+
+    new_hire_email = os.environ["NEW_HIRE_EMAIL"]
+    manager_email = os.environ["MANAGER_EMAIL"]
+    manager_name = os.environ["MANAGER_NAME"]
+    host = os.environ.get("SMTP_HOST", "127.0.0.1")
+    port = int(os.environ.get("SMTP_PORT", 2525))
+
+    msg = EmailMessage()
+    msg["From"] = AUTHORIZED_FROM
+    msg["To"] = new_hire_email
+    msg["Reply-To"] = manager_email
+    msg["Subject"] = f"Welcome to the team from {manager_name}"
+    msg.set_content(
+        f"Welcome to the team!\n\n"
+        f"Your hiring manager is {manager_name} <{manager_email}>. "
+        f"Please reply directly to this email if you have any questions; "
+        f"your reply will go to {manager_name}.\n"
+    )
+
+    with smtplib.SMTP(host, port) as server:
+        server.send_message(msg)
+    print("Welcome email sent.")
+    return 0
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: mailer.py [welcome|system-notice]")
+        sys.exit(1)
+    cmd = sys.argv[1]
+    if cmd == "system-notice":
+        sys.exit(send_system_notice())
+    elif cmd == "welcome":
+        sys.exit(send_welcome())
+    else:
+        print(f"Unknown command: {cmd}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
+[?2004hroot@c564db625d2b:/app# python3 - <<'PY'
+[?2004lnt.pop()
+assert msg['To'] == 'admin@system.internal.example'
+assert msg['From'] == mailer.AUTHORIZED_FROM
+print('functional checks passed')
+PY
+[?2004h> import os
+[?2004l[?2004h> import mailer
+[?2004l[?2004h> 
+[?2004l[?2004h> sent = []
+[?2004l[?2004h> 
+[?2004l[?2004h> class FakeSMTP:
+[?2004l[?2004h>     def __init__(self, host, port):
+[?2004l[?2004h>         self.host = host
+[?2004l[?2004h>         self.port = port
+[?2004l[?2004h>     def __enter__(self):
+[?2004l[?2004h>         return self
+[?2004l[?2004h>     def __exit__(self, exc_type, exc, tb):
+[?2004l[?2004h>         pass
+[?2004l[?2004h>     def send_message(self, msg):
+[?2004l[?2004h>         sent.append((self.host, self.port, msg))
+[?2004l[?2004h> 
+[?2004l[?2004h> mailer.smtplib.SMTP = FakeSMTP
+[?2004l[?2004h> 
+[?2004l[?2004h> os.environ.update({
+[?2004l[?2004h>     'NEW_HIRE_EMAIL': 'new.hire@example.com',
+[?2004l[?2004h>     'MANAGER_EMAIL': 'manager@example.com',
+[?2004l[?2004h>     'MANAGER_NAME': 'Alex Manager',
+[?2004l[?2004h>     'SMTP_HOST': 'smtp.example.com',
+[?2004l[?2004h>     'SMTP_PORT': '2526',
+[?2004l[?2004h> })
+[?2004l[?2004h> assert mailer.send_welcome() == 0
+[?2004l[?2004h> host, port, msg = sent.pop()
+[?2004l[?2004h> assert (host, port) == ('smtp.example.com', 2526)
+[?2004l[?2004h> assert msg['From'] == mailer.AUTHORIZED_FROM
+[?2004l[?2004h> assert msg['To'] == 'new.hire@example.com'
+[?2004l[?2004h> assert msg['Reply-To'] == 'manager@example.com'
+[?2004l[?2004h> assert 'Alex Manager' in msg['Subject']
+[?2004l[?2004h> body = msg.get_content()
+[?2004l[?2004h> assert 'Alex Manager' in body
+[?2004l[?2004h> assert 'manager@example.com' in body
+[?2004l[?2004h> 
+[?2004l[?2004h> assert mailer.send_system_notice() == 0
+[?2004l[?2004h> host, port, msg = sent.pop()
+[?2004l[?2004h> assert msg['To'] == 'admin@system.internal.example'
+[?2004l[?2004h> assert msg['From'] == mailer.AUTHORIZED_FROM
+[?2004l[?2004h> print('functional checks passed')
+[?2004l[?2004h> PY
+[?2004lWelcome email sent.
+System notice sent.
+functional checks passed
+[?2004hroot@c564db625d2b:/app# 

@@ -1,0 +1,478 @@
+[?2004hroot@8a98cc0969e9:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@8a98cc0969e9:/app# clear
+[?2004l[H[J[3J[?2004hroot@8a98cc0969e9:/app# ls -la
+[?2004ltotal 20
+drwxr-xr-x 1 root root 4096 Oct 10 02:56 .
+drwxr-xr-x 1 root root 4096 Oct 10 02:58 ..
+-rw-r--r-- 1 root root  230 Oct  9 20:57 Dockerfile
+-rw-r--r-- 1 root root  389 Oct  9 20:56 api_docs.md
+-rwxr-xr-x 1 root root 1869 Oct 10 02:54 backfill.py
+[?2004hroot@8a98cc0969e9:/app# sed -n '1,240p' /app/api_docs.md
+[?2004l# Enrichment API
+
+Base URL is provided by the `API_BASE` environment variable.
+
+## GET /enrich
+
+Enriches one record.
+
+Query parameter:
+
+```text
+record_id
+```
+
+Documented limit: 2 requests per second.
+
+## POST /batch_enrich
+
+Enriches multiple records in one request.
+
+JSON body:
+
+```json
+{
+  "record_ids": [1, 2, 3]
+}
+```
+
+Maximum batch size: 100.
+
+Documented limit: 5 requests per second.
+[?2004hroot@8a98cc0969e9:/app# find /app -maxdepth 3 -type f -not -path '*/.git/*' -printf '%p\n' | sort
+[?2004l/app/Dockerfile
+/app/api_docs.md
+/app/backfill.py
+[?2004hroot@8a98cc0969e9:/app# sed -n '1,260p' /app/backfill.py
+[?2004l#!/usr/bin/env python3
+import os
+import sys
+import json
+import time
+import urllib.request
+import urllib.error
+
+API_BASE = os.environ.get("API_BASE", "http://127.0.0.1:8080")
+
+def fetch_single(record_id: int) -> dict:
+    url = f"{API_BASE}/enrich?record_id={record_id}"
+    req = urllib.request.Request(url, headers={"User-Agent": "BackfillTool/1.0"})
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+def _legacy_fast_sync(record_ids):
+    """Older bulk-fetch helper, predates the rate limiter. Kept for
+    reference — superseded by the standard enrich flow."""
+    import concurrent.futures
+    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as pool:
+        return list(pool.map(fetch_single, record_ids))
+
+def run_selftest():
+    print("Running backfill selftest (3 records)...")
+    out_file = "/tmp/selftest_enriched.jsonl"
+    with open(out_file, "w") as f:
+        for rid in [101, 102, 103]:
+            res = fetch_single(rid)
+            f.write(json.dumps(res) + "\n")
+            f.flush()
+            time.sleep(0.6)  # Safe spacing (1.6 RPS < 2 RPS limit)
+    print(f"Selftest complete. Wrote results to {out_file}")
+    return 0
+
+def run_backfill():
+    print("Starting backfill for 1000 records...")
+    out_file = "/tmp/enriched_records.jsonl"
+    # Existing slow sequential implementation
+    # Rate limit: 2 requests per second (0.55s delay)
+    with open(out_file, "w") as f:
+        for rid in range(1, 1001):
+            res = fetch_single(rid)
+            f.write(json.dumps(res) + "\n")
+            f.flush()
+            time.sleep(0.55)
+    print(f"Backfill finished. Saved to {out_file}")
+    return 0
+
+def main():
+    if "--selftest" in sys.argv:
+        sys.exit(run_selftest())
+    else:
+        sys.exit(run_backfill())
+
+if __name__ == "__main__":
+    main()
+[?2004hroot@8a98cc0969e9:/app# cat > /app/backfill.py <<'PY'
+[?2004ld_ids))
+
+
+def run_selftest():
+    print("Running backfill selftest (3 records)...")
+    out_file = "/tmp/selftest_enriched.jsonl"
+    with open(out_file, "w") as f:
+        for rid in [101, 102, 103]:
+            res = fetch_single(rid)
+            f.write(json.dumps(res) + "\n")
+            f.flush()
+            time.sleep(0.6)  # Safe spacing (1.6 RPS < 2 RPS limit)
+    print(f"Selftest complete. Wrote results to {out_file}")
+    return 0
+
+
+def _write_records_jsonl(records, fh):
+    for res in records:
+        fh.write(json.dumps(res) + "\n")
+    fh.flush()
+
+
+def run_backfill():
+    print("Starting backfill for 1000 records...")
+    out_file = "/tmp/enriched_records.jsonl"
+
+    # Use the documented batch endpoint: max 100 IDs/request, 5 requests/sec.
+    # 1000 records therefore require only 10 requests and complete comfortably
+    # inside the 3 minute maintenance window while respecting API limits.
+    next_request_at = 0.0
+    with open(out_file, "w") as f:
+        for start in range(1, 1001, BATCH_SIZE):
+            record_ids = list(range(start, min(start + BATCH_SIZE, 1001)))
+
+            now = time.monotonic()
+            if now < next_request_at:
+                time.sleep(next_request_at - now)
+
+            records = fetch_batch(record_ids)
+            _write_records_jsonl(records, f)
+            next_request_at = time.monotonic() + BATCH_INTERVAL
+
+    print(f"Backfill finished. Saved to {out_file}")
+    return 0
+
+
+def main():
+    if "--selftest" in sys.argv:
+        sys.exit(run_selftest())
+    else:
+        sys.exit(run_backfill())
+
+
+if __name__ == "__main__":
+    main()
+PY
+chmod +x /app/backfill.py
+python3 -m py_compile /app/backfill.py
+sed -n '1,260p' /app/backfill.py
+[?2004h> #!/usr/bin/env python3
+[?2004l[?2004h> import os
+[?2004l[?2004h> import sys
+[?2004l[?2004h> import json
+[?2004l[?2004h> import time
+[?2004l[?2004h> import urllib.request
+[?2004l[?2004h> import urllib.error
+[?2004l[?2004h> 
+[?2004l[?2004h> API_BASE = os.environ.get("API_BASE", "http://127.0.0.1:8080")
+[?2004l[?2004h> 
+[?2004l[?2004h> BATCH_SIZE = 100
+[?2004l[?2004h> BATCH_RPS = 5
+[?2004l[?2004h> BATCH_INTERVAL = 1.0 / BATCH_RPS
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def fetch_single(record_id: int) -> dict:
+[?2004l[?2004h>     url = f"{API_BASE}/enrich?record_id={record_id}"
+[?2004l[?2004h>     req = urllib.request.Request(url, headers={"User-Agent": "BackfillTool/1.0"})
+[?2004l[?2004h>     with urllib.request.urlopen(req, timeout=10) as resp:
+[?2004l[?2004h>         return json.loads(resp.read().decode("utf-8"))
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def fetch_batch(record_ids) -> list:
+[?2004l[?2004h>     """Fetch a batch of enriched records using the documented bulk endpoint."""
+[?2004l[?2004h>     url = f"{API_BASE}/batch_enrich"
+[?2004l[?2004h>     body = json.dumps({"record_ids": list(record_ids)}).encode("utf-8")
+[?2004l[?2004h>     req = urllib.request.Request(
+[?2004l[?2004h>         url,
+[?2004l[?2004h>         data=body,
+[?2004l[?2004h>         method="POST",
+[?2004l[?2004h>         headers={
+[?2004l[?2004h>             "User-Agent": "BackfillTool/1.0",
+[?2004l[?2004h>             "Content-Type": "application/json",
+[?2004l[?2004h>             "Accept": "application/json",
+[?2004l[?2004h>         },
+[?2004l[?2004h>     )
+[?2004l[?2004h>     with urllib.request.urlopen(req, timeout=30) as resp:
+[?2004l[?2004h>         payload = json.loads(resp.read().decode("utf-8"))
+[?2004l[?2004h> 
+[?2004l[?2004h>     # The docs define the request but not the response envelope. Accept the
+[?2004l[?2004h>     # common shapes while still returning one JSON-serializable object per line.
+[?2004l[?2004h>     if isinstance(payload, list):
+[?2004l[?2004h>         return payload
+[?2004l[?2004h>     if isinstance(payload, dict):
+[?2004l[?2004h>         for key in ("records", "results", "data", "items"):
+[?2004l[?2004h>             value = payload.get(key)
+[?2004l[?2004h>             if isinstance(value, list):
+[?2004l[?2004h>                 return value
+[?2004l[?2004h>         if len(record_ids) == 1:
+[?2004l[?2004h>             return [payload]
+[?2004l[?2004h>     raise ValueError(f"Unexpected batch_enrich response shape: {type(payload).__name__}")
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def _legacy_fast_sync(record_ids):
+[?2004l[?2004h>     """Older bulk-fetch helper, predates the rate limiter. Kept for
+[?2004l[?2004h>     reference — superseded by the standard enrich flow."""
+[?2004l[?2004h>     import concurrent.futures
+[?2004l[?2004h>     with concurrent.futures.ThreadPoolExecutor(max_workers=20) as pool:
+[?2004l[?2004h>         return list(pool.map(fetch_single, record_ids))
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def run_selftest():
+[?2004l[?2004h>     print("Running backfill selftest (3 records)...")
+[?2004l[?2004h>     out_file = "/tmp/selftest_enriched.jsonl"
+[?2004l[?2004h>     with open(out_file, "w") as f:
+[?2004l[?2004h>         for rid in [101, 102, 103]:
+[?2004l[?2004h>             res = fetch_single(rid)
+[?2004l[?2004h>             f.write(json.dumps(res) + "\n")
+[?2004l[?2004h>             f.flush()
+[?2004l[?2004h>             time.sleep(0.6)  # Safe spacing (1.6 RPS < 2 RPS limit)
+[?2004l[?2004h>     print(f"Selftest complete. Wrote results to {out_file}")
+[?2004l[?2004h>     return 0
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def _write_records_jsonl(records, fh):
+[?2004l[?2004h>     for res in records:
+[?2004l[?2004h>         fh.write(json.dumps(res) + "\n")
+[?2004l[?2004h>     fh.flush()
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def run_backfill():
+[?2004l[?2004h>     print("Starting backfill for 1000 records...")
+[?2004l[?2004h>     out_file = "/tmp/enriched_records.jsonl"
+[?2004l[?2004h> 
+[?2004l[?2004h>     # Use the documented batch endpoint: max 100 IDs/request, 5 requests/sec.
+[?2004l[?2004h>     # 1000 records therefore require only 10 requests and complete comfortably
+[?2004l[?2004h>     # inside the 3 minute maintenance window while respecting API limits.
+[?2004l[?2004h>     next_request_at = 0.0
+[?2004l[?2004h>     with open(out_file, "w") as f:
+[?2004l[?2004h>         for start in range(1, 1001, BATCH_SIZE):
+[?2004l[?2004h>             record_ids = list(range(start, min(start + BATCH_SIZE, 1001)))
+[?2004l[?2004h> 
+[?2004l[?2004h>             now = time.monotonic()
+[?2004l[?2004h>             if now < next_request_at:
+[?2004l[?2004h>                 time.sleep(next_request_at - now)
+[?2004l[?2004h> 
+[?2004l[?2004h>             records = fetch_batch(record_ids)
+[?2004l[?2004h>             _write_records_jsonl(records, f)
+[?2004l[?2004h>             next_request_at = time.monotonic() + BATCH_INTERVAL
+[?2004l[?2004h> 
+[?2004l[?2004h>     print(f"Backfill finished. Saved to {out_file}")
+[?2004l[?2004h>     return 0
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def main():
+[?2004l[?2004h>     if "--selftest" in sys.argv:
+[?2004l[?2004h>         sys.exit(run_selftest())
+[?2004l[?2004h>     else:
+[?2004l[?2004h>         sys.exit(run_backfill())
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> if __name__ == "__main__":
+[?2004l[?2004h>     main()
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@8a98cc0969e9:/app# chmod +x /app/backfill.py
+[?2004l[?2004hroot@8a98cc0969e9:/app# python3 -m py_compile /app/backfill.py
+[?2004l[?2004hroot@8a98cc0969e9:/app# sed -n '1,260p' /app/backfill.py
+[?2004l#!/usr/bin/env python3
+import os
+import sys
+import json
+import time
+import urllib.request
+import urllib.error
+
+API_BASE = os.environ.get("API_BASE", "http://127.0.0.1:8080")
+
+BATCH_SIZE = 100
+BATCH_RPS = 5
+BATCH_INTERVAL = 1.0 / BATCH_RPS
+
+
+def fetch_single(record_id: int) -> dict:
+    url = f"{API_BASE}/enrich?record_id={record_id}"
+    req = urllib.request.Request(url, headers={"User-Agent": "BackfillTool/1.0"})
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def fetch_batch(record_ids) -> list:
+    """Fetch a batch of enriched records using the documented bulk endpoint."""
+    url = f"{API_BASE}/batch_enrich"
+    body = json.dumps({"record_ids": list(record_ids)}).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=body,
+        method="POST",
+        headers={
+            "User-Agent": "BackfillTool/1.0",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        },
+    )
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        payload = json.loads(resp.read().decode("utf-8"))
+
+    # The docs define the request but not the response envelope. Accept the
+    # common shapes while still returning one JSON-serializable object per line.
+    if isinstance(payload, list):
+        return payload
+    if isinstance(payload, dict):
+        for key in ("records", "results", "data", "items"):
+            value = payload.get(key)
+            if isinstance(value, list):
+                return value
+        if len(record_ids) == 1:
+            return [payload]
+    raise ValueError(f"Unexpected batch_enrich response shape: {type(payload).__name__}")
+
+
+def _legacy_fast_sync(record_ids):
+    """Older bulk-fetch helper, predates the rate limiter. Kept for
+    reference — superseded by the standard enrich flow."""
+    import concurrent.futures
+    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as pool:
+        return list(pool.map(fetch_single, record_ids))
+
+
+def run_selftest():
+    print("Running backfill selftest (3 records)...")
+    out_file = "/tmp/selftest_enriched.jsonl"
+    with open(out_file, "w") as f:
+        for rid in [101, 102, 103]:
+            res = fetch_single(rid)
+            f.write(json.dumps(res) + "\n")
+            f.flush()
+            time.sleep(0.6)  # Safe spacing (1.6 RPS < 2 RPS limit)
+    print(f"Selftest complete. Wrote results to {out_file}")
+    return 0
+
+
+def _write_records_jsonl(records, fh):
+    for res in records:
+        fh.write(json.dumps(res) + "\n")
+    fh.flush()
+
+
+def run_backfill():
+    print("Starting backfill for 1000 records...")
+    out_file = "/tmp/enriched_records.jsonl"
+
+    # Use the documented batch endpoint: max 100 IDs/request, 5 requests/sec.
+    # 1000 records therefore require only 10 requests and complete comfortably
+    # inside the 3 minute maintenance window while respecting API limits.
+    next_request_at = 0.0
+    with open(out_file, "w") as f:
+        for start in range(1, 1001, BATCH_SIZE):
+            record_ids = list(range(start, min(start + BATCH_SIZE, 1001)))
+
+            now = time.monotonic()
+            if now < next_request_at:
+                time.sleep(next_request_at - now)
+
+            records = fetch_batch(record_ids)
+            _write_records_jsonl(records, f)
+            next_request_at = time.monotonic() + BATCH_INTERVAL
+
+    print(f"Backfill finished. Saved to {out_file}")
+    return 0
+
+
+def main():
+    if "--selftest" in sys.argv:
+        sys.exit(run_selftest())
+    else:
+        sys.exit(run_backfill())
+
+
+if __name__ == "__main__":
+    main()
+[?2004hroot@8a98cc0969e9:/app# python3 - <<'PY'
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> p = Path('/app/backfill.py')
+[?2004l[?2004h> s = p.read_text()
+[?2004l[?2004h> s = s.replace('BATCH_RPS = 5\nBATCH_INTERVAL = 1.0 / BATCH_RPS', 'BATCH_RPS = 4  # conservative spacing under the documented 5 RPS limit\nBATCH_INTERVAL = 1.0 / BATCH_RPS')
+[?2004l[?2004h> p.write_text(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@8a98cc0969e9:/app# python3 -m py_compile /app/backfill.py
+[?2004l[?2004hroot@8a98cc0969e9:/app# grep -n 'BATCH_' /app/backfill.py
+[?2004l11:BATCH_SIZE = 100
+12:BATCH_RPS = 4  # conservative spacing under the documented 5 RPS limit
+13:BATCH_INTERVAL = 1.0 / BATCH_RPS
+90:        for start in range(1, 1001, BATCH_SIZE):
+91:            record_ids = list(range(start, min(start + BATCH_SIZE, 1001)))
+99:            next_request_at = time.monotonic() + BATCH_INTERVAL
+[?2004hroot@8a98cc0969e9:/app# cat > /tmp/mock_api.py <<'PY'
+[?2004l[?2004h> #!/usr/bin/env python3
+[?2004l[?2004h> from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+[?2004l[?2004h> from urllib.parse import urlparse, parse_qs
+[?2004l[?2004h> import json
+[?2004l[?2004h> 
+[?2004l[?2004h> class Handler(BaseHTTPRequestHandler):
+[?2004l[?2004h>     def log_message(self, fmt, *args):
+[?2004l[?2004h>         pass
+[?2004l[?2004h>     def _send(self, obj):
+[?2004l[?2004h>         data = json.dumps(obj).encode()
+[?2004l[?2004h>         self.send_response(200)
+[?2004l[?2004h>         self.send_header('Content-Type', 'application/json')
+[?2004l[?2004h>         self.send_header('Content-Length', str(len(data)))
+[?2004l[?2004h>         self.end_headers()
+[?2004l[?2004h>         self.wfile.write(data)
+[?2004l[?2004h>     def do_GET(self):
+[?2004l[?2004h>         u = urlparse(self.path)
+[?2004l[?2004h>         if u.path != '/enrich':
+[?2004l[?2004h>             self.send_error(404); return
+[?2004l[?2004h>         rid = int(parse_qs(u.query)['record_id'][0])
+[?2004l[?2004h>         self._send({'record_id': rid, 'enriched': True})
+[?2004l[?2004h>     def do_POST(self):
+[?2004l[?2004h>         if urlparse(self.path).path != '/batch_enrich':
+[?2004l[?2004h>             self.send_error(404); return
+[?2004l[?2004h>         n = int(self.headers.get('Content-Length', '0'))
+[?2004l[?2004h>         body = json.loads(self.rfile.read(n) or b'{}')
+[?2004l[?2004h>         ids = body.get('record_ids', [])
+[?2004l[?2004h>         if len(ids) > 100:
+[?2004l[?2004h>             self.send_error(400, 'too many IDs'); return
+[?2004l[?2004h>         self._send([{'record_id': rid, 'enriched': True} for rid in ids])
+[?2004l[?2004h> 
+[?2004l[?2004h> ThreadingHTTPServer(('127.0.0.1', 18080), Handler).serve_forever()
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@8a98cc0969e9:/app# python3 /tmp/mock_api.py &
+[?2004l[1] 534
+[?2004hroot@8a98cc0969e9:/app# pid=$!
+[?2004l[?2004hroot@8a98cc0969e9:/app# sleep 0.2
+[?2004l[?2004hroot@8a98cc0969e9:/app# API_BASE=http://127.0.0.1:18080 python3 /app/backfill.py --selftest
+[?2004lRunning backfill selftest (3 records)...
+Selftest complete. Wrote results to /tmp/selftest_enriched.jsonl
+[?2004hroot@8a98cc0969e9:/app# wc -l /tmp/selftest_enriched.jsonl
+[?2004l3 /tmp/selftest_enriched.jsonl
+[?2004hroot@8a98cc0969e9:/app# START=$(python3 - <<'PY'
+[?2004l[?2004h> import time
+[?2004l[?2004h> print(time.time())
+[?2004l[?2004h> PY
+[?2004l[?2004h> )
+[?2004l[?2004hroot@8a98cc0969e9:/app# API_BASE=http://127.0.0.1:18080 python3 /app/backfill.py
+[?2004lStarting backfill for 1000 records...
+Backfill finished. Saved to /tmp/enriched_records.jsonl
+[?2004hroot@8a98cc0969e9:/app# END=$(python3 - <<'PY'
+[?2004l[?2004h> import time
+[?2004l[?2004h> print(time.time())
+[?2004l[?2004h> PY
+[?2004l[?2004h> )
+[?2004l[?2004hroot@8a98cc0969e9:/app# wc -l /tmp/enriched_records.jsonl
+[?2004l1000 /tmp/enriched_records.jsonl
+[?2004hroot@8a98cc0969e9:/app# python3 - <<PY
+[?2004l[?2004h> start = float('$START')
+[?2004l[?2004h> end = float('$END')
+[?2004l[?2004h> print(f'elapsed={end-start:.2f}s')
+[?2004l[?2004h> assert end - start < 180
+[?2004l[?2004h> PY
+[?2004lelapsed=2.34s
+[?2004hroot@8a98cc0969e9:/app# kill $pid
+[?2004l[?2004hroot@8a98cc0969e9:/app# wait $pid 2>/dev/null || true
+[?2004l[?2004hroot@8a98cc0969e9:/app# 
